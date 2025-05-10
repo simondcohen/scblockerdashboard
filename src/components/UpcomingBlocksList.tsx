@@ -25,10 +25,10 @@ const UpcomingBlocksList: React.FC<UpcomingBlocksListProps> = ({ blocks }) => {
           {blocks.slice(0, 5).map(block => {
             const isToday = block.startTime.toDateString() === new Date().toDateString();
             const startTimeDisplay = isToday 
-              ? block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              ? block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
               : block.startTime.toLocaleDateString([], { month: 'short', day: 'numeric' }) + 
                 ' at ' + 
-                block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
             
             return (
               <div 
@@ -38,6 +38,7 @@ const UpcomingBlocksList: React.FC<UpcomingBlocksListProps> = ({ blocks }) => {
                 {editingId === block.id ? (
                   <BlockActions
                     block={block}
+                    initialEditMode={true}
                     onEditStart={() => setEditingId(block.id)}
                     onEditEnd={() => setEditingId(null)}
                   />

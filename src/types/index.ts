@@ -5,6 +5,11 @@ export interface Block {
   endTime: Date;
 }
 
+export interface StandardBlock {
+  id: number;
+  name: string;
+}
+
 export interface RemainingTime {
   text: string;
   expired: boolean;

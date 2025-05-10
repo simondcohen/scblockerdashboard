@@ -31,6 +31,7 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
                 {editingId === block.id ? (
                   <BlockActions
                     block={block}
+                    initialEditMode={true}
                     onEditStart={() => setEditingId(block.id)}
                     onEditEnd={() => setEditingId(null)}
                   />
@@ -40,8 +41,8 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
                       <div className="font-medium">{block.name}</div>
                       <div className="text-sm text-gray-600 flex justify-between items-center mt-1">
                         <span>
-                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                          {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - 
+                          {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </span>
                         <span className="text-xs bg-green-100 text-green-800 rounded-full px-2 py-0.5">
                           {formatDuration(block.startTime, block.endTime)}

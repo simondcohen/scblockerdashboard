@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Save } from 'lucide-react';
 import { useBlocker } from '../context/BlockerContext';
+import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { formatDateTimeLocal } from '../utils/timeUtils';
+import StandardBlocksList from './StandardBlocksList';
+import { StandardBlock } from '../types';
 
 const AddBlockForm: React.FC = () => {
-  const { addBlock } = useBlocker();
+  const { addBlock, currentTime } = useBlocker();
+  const { addStandardBlock } = useStandardBlocks();
   const [showForm, setShowForm] = useState(false);
   const [blockName, setBlockName] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [formError, setFormError] = useState('');
+  const [saveAsStandard, setSaveAsStandard] = useState(false);
   
-  // Initialize default times
+  // Update times whenever the form is shown or currentTime changes
   useEffect(() => {
-    const now = new Date();
-    const later = new Date(now.getTime() + 3600000); // 1 hour later
-    setStartTime(formatDateTimeLocal(now));
-    setEndTime(formatDateTimeLocal(later));
-  }, []);
+    if (showForm) {
+      const now = new Date();
+      const later = new Date(now.getTime() + 3600000); // 1 hour later
+      setStartTime(formatDateTimeLocal(now));
+      setEndTime(formatDateTimeLocal(later));
+    }
+  }, [showForm, currentTime]);
   
   // Reset form
   const resetForm = () => {
     setBlockName('');
+    setSaveAsStandard(false);
     setFormError('');
-    const now = new Date();
-    const later = new Date(now.getTime() + 3600000);
-    setStartTime(formatDateTimeLocal(now));
-    setEndTime(formatDateTimeLocal(later));
   };
   
   // Toggle form visibility
@@ -73,8 +77,29 @@ const AddBlockForm: React.FC = () => {
       endTime: end
     });
     
+    // Save as standard block if checkbox is checked
+    if (saveAsStandard) {
+      addStandardBlock({
+        name: blockName.trim()
+      });
+    }
+    
     resetForm();
     setShowForm(false);
+  };
+
+  // Handle selecting a standard block
+  const handleSelectStandardBlock = (block: StandardBlock) => {
+    setBlockName(block.name);
+    
+    const now = new Date();
+    const start = new Date(now);
+    const end = new Date(now.getTime() + 3600000); // Default 1 hour later
+    
+    setStartTime(formatDateTimeLocal(start));
+    setEndTime(formatDateTimeLocal(end));
+    
+    setShowForm(true);
   };
   
   return (
@@ -93,6 +118,10 @@ const AddBlockForm: React.FC = () => {
           </>
         )}
       </button>
+      
+      {!showForm && (
+        <StandardBlocksList onSelectBlock={handleSelectStandardBlock} />
+      )}
       
       {showForm && (
         <div className="mt-4 bg-white rounded-lg border shadow-sm p-6 animate-fade-in">
@@ -147,12 +176,25 @@ const AddBlockForm: React.FC = () => {
               </div>
             </div>
             
+            <div className="flex items-center">
+              <input
+                id="saveAsStandard"
+                type="checkbox"
+                checked={saveAsStandard}
+                onChange={(e) => setSaveAsStandard(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="saveAsStandard" className="ml-2 block text-sm text-gray-700">
+                Save as standard block for future use
+              </label>
+            </div>
+            
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded transition-colors duration-200 shadow-sm"
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded transition-colors duration-200 shadow-sm flex items-center gap-2"
               >
-                Create Block
+                <Plus size={18} /> Create Block
               </button>
             </div>
           </form>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, X, Check } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
 import { useBlocker } from '../context/BlockerContext';
@@ -8,17 +8,29 @@ interface BlockActionsProps {
   block: Block;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  initialEditMode?: boolean;
 }
 
-export const BlockActions: React.FC<BlockActionsProps> = ({ block, onEditStart, onEditEnd }) => {
+export const BlockActions: React.FC<BlockActionsProps> = ({ 
+  block, 
+  onEditStart, 
+  onEditEnd,
+  initialEditMode = false 
+}) => {
   const { removeBlock, updateBlock } = useBlocker();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialEditMode);
   const [formData, setFormData] = useState<BlockFormData>({
     name: block.name,
     startTime: formatDateTimeLocal(block.startTime),
     endTime: formatDateTimeLocal(block.endTime)
   });
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialEditMode && !isEditing) {
+      setIsEditing(true);
+    }
+  }, [initialEditMode]);
 
   const handleEdit = () => {
     setIsEditing(true);

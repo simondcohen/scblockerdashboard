@@ -39,6 +39,7 @@ const ActiveBlocksList: React.FC<ActiveBlocksListProps> = ({ blocks }) => {
                 {editingId === block.id ? (
                   <BlockActions
                     block={block}
+                    initialEditMode={true}
                     onEditStart={() => setEditingId(block.id)}
                     onEditEnd={() => setEditingId(null)}
                   />
@@ -48,8 +49,8 @@ const ActiveBlocksList: React.FC<ActiveBlocksListProps> = ({ blocks }) => {
                       <div className="flex-grow">
                         <h3 className="font-bold text-xl">{block.name}</h3>
                         <p className="text-sm text-gray-600">
-                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                          {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - 
+                          {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </p>
                       </div>
                       
