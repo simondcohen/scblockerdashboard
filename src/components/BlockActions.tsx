@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Trash2, X, Check } from 'lucide-react';
+import { Edit2, Trash2, X, Check, Calendar, Clock } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
 import { useBlocker } from '../context/BlockerContext';
 import { formatDateTimeLocal } from '../utils/timeUtils';
@@ -9,16 +9,19 @@ interface BlockActionsProps {
   onEditStart?: () => void;
   onEditEnd?: () => void;
   initialEditMode?: boolean;
+  fullScreenEdit?: boolean;
 }
 
 export const BlockActions: React.FC<BlockActionsProps> = ({ 
   block, 
   onEditStart, 
   onEditEnd,
-  initialEditMode = false 
+  initialEditMode = false,
+  fullScreenEdit = false
 }) => {
   const { removeBlock, updateBlock } = useBlocker();
   const [isEditing, setIsEditing] = useState(initialEditMode);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [formData, setFormData] = useState<BlockFormData>({
     name: block.name,
     startTime: formatDateTimeLocal(block.startTime),
@@ -34,11 +37,13 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
 
   const handleEdit = () => {
     setIsEditing(true);
+    setIsExpanded(fullScreenEdit);
     onEditStart?.();
   };
 
   const handleCancel = () => {
     setIsEditing(false);
+    setIsExpanded(false);
     setError('');
     setFormData({
       name: block.name,
@@ -76,6 +81,7 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
     });
 
     setIsEditing(false);
+    setIsExpanded(false);
     onEditEnd?.();
   };
 
@@ -85,50 +91,110 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
     }
   };
 
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   if (isEditing) {
+    const editFormClasses = isExpanded 
+      ? "fixed inset-0 bg-white bg-opacity-95 z-50 p-6 overflow-auto" 
+      : "space-y-4";
+
+    const headerClasses = isExpanded 
+      ? "border-b pb-4 mb-6 flex justify-between items-center" 
+      : "hidden";
+
     return (
-      <div className="space-y-4">
+      <div className={editFormClasses}>
+        <div className={headerClasses}>
+          <h2 className="text-xl font-bold">Edit Block</h2>
+          {isExpanded && (
+            <button 
+              onClick={toggleExpand} 
+              className="text-gray-500 hover:text-gray-700"
+              title="Minimize editor"
+            >
+              <X size={24} />
+            </button>
+          )}
+        </div>
+
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+          <div className="text-sm text-red-600 bg-red-50 p-3 rounded mb-4">
             {error}
           </div>
         )}
-        <div className="space-y-3">
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none"
-            placeholder="Block name"
-          />
-          <div className="grid grid-cols-2 gap-3">
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="blockName" className="block text-sm font-medium text-gray-700">
+              Block Name
+            </label>
             <input
-              type="datetime-local"
-              value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none"
-            />
-            <input
-              type="datetime-local"
-              value={formData.endTime}
-              onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none"
+              id="blockName"
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
+              placeholder="Enter block name"
             />
           </div>
+
+          <div className={`${isExpanded ? 'grid grid-cols-2 gap-6' : 'space-y-4'}`}>
+            <div className="space-y-2">
+              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Calendar size={16} /> Start Time
+              </label>
+              <input
+                id="startTime"
+                type="datetime-local"
+                value={formData.startTime}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Clock size={16} /> End Time
+              </label>
+              <input
+                id="endTime"
+                type="datetime-local"
+                value={formData.endTime}
+                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={handleCancel}
-            className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-          >
-            <X size={16} /> Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:text-green-800"
-          >
-            <Check size={16} /> Save
-          </button>
+
+        <div className={`${isExpanded ? 'mt-6 flex justify-between' : 'mt-5 flex justify-end gap-3'}`}>
+          {!isExpanded && (
+            <button
+              type="button"
+              onClick={toggleExpand}
+              className="flex items-center gap-1 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50"
+              title="Expand editor"
+            >
+              Expand
+            </button>
+          )}
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancel}
+              className="flex items-center gap-1 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <X size={16} /> Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-1 px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg"
+            >
+              <Check size={16} /> Save
+            </button>
+          </div>
         </div>
       </div>
     );

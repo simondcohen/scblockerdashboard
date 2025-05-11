@@ -39,6 +39,7 @@ const UpcomingBlocksList: React.FC<UpcomingBlocksListProps> = ({ blocks }) => {
                   <BlockActions
                     block={block}
                     initialEditMode={true}
+                    fullScreenEdit={true}
                     onEditStart={() => setEditingId(block.id)}
                     onEditEnd={() => setEditingId(null)}
                   />

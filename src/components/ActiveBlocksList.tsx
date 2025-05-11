@@ -40,6 +40,7 @@ const ActiveBlocksList: React.FC<ActiveBlocksListProps> = ({ blocks }) => {
                   <BlockActions
                     block={block}
                     initialEditMode={true}
+                    fullScreenEdit={true}
                     onEditStart={() => setEditingId(block.id)}
                     onEditEnd={() => setEditingId(null)}
                   />
