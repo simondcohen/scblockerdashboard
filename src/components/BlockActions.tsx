@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, X, Check, Calendar, Clock } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
 import { useBlocker } from '../context/BlockerContext';
-import { formatDateTimeLocal } from '../utils/timeUtils';
+import { formatDateTimeLocal, parseDateTimeLocal } from '../utils/timeUtils';
 
 interface BlockActionsProps {
   block: Block;
@@ -61,8 +61,8 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
       return;
     }
 
-    const start = new Date(formData.startTime);
-    const end = new Date(formData.endTime);
+    const start = parseDateTimeLocal(formData.startTime);
+    const end = parseDateTimeLocal(formData.endTime);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       setError('Invalid date format');
@@ -150,6 +150,7 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
                 type="datetime-local"
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                step="1"
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
               />
             </div>
@@ -163,6 +164,7 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
                 type="datetime-local"
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                step="1"
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
               />
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Trash2, Edit, Check, X, PlusCircle } from 'lucide-react';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { StandardBlock } from '../types';
@@ -18,6 +18,10 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
 }) => {
   const [name, setName] = useState(initialName);
   const [error, setError] = useState('');
+
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,8 +50,8 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
           id="standardBlockName"
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none"
+          onChange={handleNameChange}
+          className="w-full p-2 border rounded text-sm focus:outline-none focus:border-blue-500"
           placeholder="e.g., Quick Meeting"
         />
       </div>
