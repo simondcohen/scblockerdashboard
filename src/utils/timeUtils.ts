@@ -215,3 +215,28 @@ export const formatTimeForTimeInput = (date: Date | null): string => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 };
+
+// Update only the date or time part of a Date object while preserving the other part
+export const updateDateAndTime = (current: Date|null, newDate?: string, newTime?: string): Date|null => {
+  // Return null if both newDate and newTime are empty/undefined
+  if (!newDate && !newTime) {
+    return null;
+  }
+  
+  // Start with current Date or create a new one if null
+  const result = current ? new Date(current) : new Date();
+  
+  // Update date part if provided
+  if (newDate) {
+    const [year, month, day] = newDate.split('-').map(Number);
+    result.setFullYear(year, month - 1, day); // month is 0-indexed
+  }
+  
+  // Update time part if provided
+  if (newTime) {
+    const [hours, minutes] = newTime.split(':').map(Number);
+    result.setHours(hours, minutes, 0, 0); // Reset seconds/ms
+  }
+  
+  return result;
+};

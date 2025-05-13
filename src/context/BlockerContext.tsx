@@ -58,12 +58,22 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return [];
   });
   
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  // Initialize currentTime with a fresh Date object
+  const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
   
+  // Update currentTime every second to ensure we always have the latest time
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    // Force immediate update with the latest time when component mounts
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now);
+    };
+    
+    // Update immediately
+    updateTime();
+    
+    // Set interval to update time every second
+    const timer = setInterval(updateTime, 1000);
     
     return () => clearInterval(timer);
   }, []);
@@ -80,22 +90,8 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newBlock = {
       ...block,
       id: Date.now(),
-      startTime: new Date(
-        block.startTime.getFullYear(),
-        block.startTime.getMonth(),
-        block.startTime.getDate(),
-        block.startTime.getHours(),
-        block.startTime.getMinutes(),
-        block.startTime.getSeconds()
-      ),
-      endTime: new Date(
-        block.endTime.getFullYear(),
-        block.endTime.getMonth(),
-        block.endTime.getDate(),
-        block.endTime.getHours(),
-        block.endTime.getMinutes(),
-        block.endTime.getSeconds()
-      )
+      startTime: block.startTime,
+      endTime: block.endTime
     };
     setBlocks(prevBlocks => [...prevBlocks, newBlock]);
   };
