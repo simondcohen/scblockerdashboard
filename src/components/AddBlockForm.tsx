@@ -200,11 +200,11 @@ const AddBlockForm: React.FC = () => {
       // Get the actual current system time for validation
       const now = new Date();
       
-      // Check if start time is in the past
-      if (startTime < now) {
-        setFormError('Start time can\'t be in the past');
-        return;
-      }
+      // Check if start time is in the past - removing this validation
+      // if (startTime < now) {
+      //   setFormError('Start time can\'t be in the past');
+      //   return;
+      // }
       
       if (endTime <= startTime) {
         setFormError('End time must be after start time');
@@ -268,9 +268,10 @@ const AddBlockForm: React.FC = () => {
   
   // Dynamic min date for start date and end date inputs
   const getMinStartDate = (): string => {
-    // Use the actual current system time
-    const today = new Date();
-    return formatDateForDateInput(today);
+    // Return a date far in the past to allow any start date
+    const pastDate = new Date();
+    pastDate.setFullYear(pastDate.getFullYear() - 10); // 10 years in the past
+    return formatDateForDateInput(pastDate);
   };
   
   // Dynamic min time for end time input when date is the same as start date
@@ -379,7 +380,6 @@ const AddBlockForm: React.FC = () => {
                   className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-shadow"
                   placeholder="Start Date"
                   autoComplete="off"
-                  min={getMinStartDate()}
                 />
               </div>
               <div>
@@ -404,7 +404,7 @@ const AddBlockForm: React.FC = () => {
                     title="Use current time"
                   >
                     <Clock size={16} />
-                    <span className="text-xs whitespace-nowrap">Use Current Time</span>
+                    <span className="text-xs whitespace-nowrap">Set to Now</span>
                   </button>
                 </div>
               </div>
