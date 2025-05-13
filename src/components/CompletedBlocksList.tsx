@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Block } from '../types';
 import { formatDuration } from '../utils/timeUtils';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FileText } from 'lucide-react';
 import { BlockActions } from './BlockActions';
 
 interface CompletedBlocksListProps {
@@ -49,6 +49,12 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
                           {formatDuration(block.startTime, block.endTime)}
                         </span>
                       </div>
+                      {block.notes && (
+                        <div className="mt-2 flex items-start gap-1.5">
+                          <FileText size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-gray-600 italic">{block.notes}</p>
+                        </div>
+                      )}
                     </div>
                     <BlockActions
                       block={block}

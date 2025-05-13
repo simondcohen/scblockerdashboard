@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, X, Clock, ArrowRight } from 'lucide-react';
+import { Plus, X, Clock, ArrowRight, FileText } from 'lucide-react';
 import { useBlocker } from '../context/BlockerContext';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { formatDateOnly, updateDateTimePart, formatDateForDateInput, formatTimeForTimeInput, updateDateAndTime } from '../utils/timeUtils';
@@ -11,6 +11,7 @@ const AddBlockForm: React.FC = () => {
   const { addStandardBlock } = useStandardBlocks();
   const [showForm, setShowForm] = useState(false);
   const [blockName, setBlockName] = useState('');
+  const [notes, setNotes] = useState('');
   
   // Date state using Date objects
   const [startTime, setStartTime] = useState<Date | null>(null);
@@ -146,6 +147,7 @@ const AddBlockForm: React.FC = () => {
   // Reset form
   const resetForm = () => {
     setBlockName('');
+    setNotes('');
     setStartTime(null);
     setEndTime(null);
     setSaveAsStandard(false);
@@ -169,6 +171,10 @@ const AddBlockForm: React.FC = () => {
   // Input handlers
   const handleBlockNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setBlockName(e.target.value);
+  };
+  
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNotes(e.target.value);
   };
   
   const handleSaveAsStandardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -246,7 +252,8 @@ const AddBlockForm: React.FC = () => {
       addBlock({
         name: blockName.trim(),
         startTime: startTime,
-        endTime: endTime
+        endTime: endTime,
+        notes: notes.trim()
       });
       
       // Save as standard block if checkbox is checked
@@ -552,6 +559,20 @@ const AddBlockForm: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+        
+        <div className="mb-4">
+          <label htmlFor="blockNotes" className="block font-medium mb-1 text-gray-700 flex items-center gap-1.5">
+            <FileText size={16} /> Notes (Optional):
+          </label>
+          <textarea
+            id="blockNotes"
+            value={notes}
+            onChange={handleNotesChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-shadow"
+            placeholder="Add optional notes about this block"
+            rows={3}
+          />
         </div>
         
         <div className="mb-4">

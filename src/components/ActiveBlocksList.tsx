@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Block } from '../types';
 import { useBlocker } from '../context/BlockerContext';
 import { calculateRemainingTime, calculateProgress } from '../utils/timeUtils';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, FileText } from 'lucide-react';
 import { BlockActions } from './BlockActions';
 
 interface ActiveBlocksListProps {
@@ -53,6 +53,12 @@ const ActiveBlocksList: React.FC<ActiveBlocksListProps> = ({ blocks }) => {
                           {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - 
                           {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </p>
+                        {block.notes && (
+                          <div className="mt-2 flex items-start gap-1.5">
+                            <FileText size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-gray-600 italic">{block.notes}</p>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex items-start justify-between gap-4">

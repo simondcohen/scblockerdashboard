@@ -3,6 +3,7 @@ export interface Block {
   name: string;
   startTime: Date;
   endTime: Date;
+  notes?: string;
 }
 
 export interface StandardBlock {
@@ -23,4 +24,5 @@ export interface BlockFormData {
   name: string;
   startTime: string;
   endTime: string;
+  notes: string;
 }

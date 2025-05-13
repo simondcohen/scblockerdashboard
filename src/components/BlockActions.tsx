@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Trash2, X, Check, Calendar, Clock } from 'lucide-react';
+import { Edit2, Trash2, X, Check, Calendar, Clock, FileText } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
 import { useBlocker } from '../context/BlockerContext';
 import { formatDateTimeLocal, parseDateTimeLocal } from '../utils/timeUtils';
@@ -25,7 +25,8 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
   const [formData, setFormData] = useState<BlockFormData>({
     name: block.name,
     startTime: formatDateTimeLocal(block.startTime),
-    endTime: formatDateTimeLocal(block.endTime)
+    endTime: formatDateTimeLocal(block.endTime),
+    notes: block.notes || ''
   });
   const [error, setError] = useState('');
 
@@ -48,7 +49,8 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
     setFormData({
       name: block.name,
       startTime: formatDateTimeLocal(block.startTime),
-      endTime: formatDateTimeLocal(block.endTime)
+      endTime: formatDateTimeLocal(block.endTime),
+      notes: block.notes || ''
     });
     onEditEnd?.();
   };
@@ -77,7 +79,8 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
     updateBlock(block.id, {
       name: formData.name.trim(),
       startTime: start,
-      endTime: end
+      endTime: end,
+      notes: formData.notes.trim()
     });
 
     setIsEditing(false);
@@ -168,6 +171,20 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
                 className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="blockNotes" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+              <FileText size={16} /> Notes
+            </label>
+            <textarea
+              id="blockNotes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={3}
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none text-base"
+              placeholder="Add optional notes about this block"
+            />
           </div>
         </div>
 
