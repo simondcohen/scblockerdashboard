@@ -77,17 +77,57 @@ const AddBlockForm: React.FC = () => {
     return new Date(start.getTime() + durationMs);
   }, []);
 
+  // Handle duration input changes
+  const handleDurationChange = (field: 'days' | 'hours' | 'minutes', value: number) => {
+    // Ensure non-negative values
+    const validValue = Math.max(0, value);
+    
+    // Apply additional validation for hours and minutes
+    let correctedValue = validValue;
+    if (field === 'hours' && validValue > 23) {
+      correctedValue = 23;
+    } else if (field === 'minutes' && validValue > 59) {
+      correctedValue = 59;
+    }
+    
+    // Update duration state with the validated value
+    setDuration(prev => ({
+      ...prev,
+      [field]: correctedValue
+    }));
+  };
+  
   // Effect to update end time based on duration when in duration mode
+  // Using useRef to prevent excessive re-renders
+  const durationUpdateTimeoutRef = useRef<number | null>(null);
+  
   useEffect(() => {
     if (useDuration && startTime) {
-      const newEndTime = calculateEndTime(startTime, duration);
-      if (newEndTime) {
-        setEndTime(newEndTime);
+      // Clear any existing timeout to debounce rapid changes
+      if (durationUpdateTimeoutRef.current) {
+        window.clearTimeout(durationUpdateTimeoutRef.current);
       }
+      
+      // Set a short timeout to update end time after user stops typing
+      durationUpdateTimeoutRef.current = window.setTimeout(() => {
+        const newEndTime = calculateEndTime(startTime, duration);
+        if (newEndTime) {
+          setEndTime(newEndTime);
+        }
+        durationUpdateTimeoutRef.current = null;
+      }, 300); // 300ms debounce
     }
+    
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (durationUpdateTimeoutRef.current) {
+        window.clearTimeout(durationUpdateTimeoutRef.current);
+      }
+    };
   }, [useDuration, startTime, duration, calculateEndTime]);
   
   // Effect to update duration when switching to duration mode
+  // Only update when duration mode is toggled ON
   useEffect(() => {
     if (useDuration && startTime && endTime) {
       const diffMs = endTime.getTime() - startTime.getTime();
@@ -101,7 +141,7 @@ const AddBlockForm: React.FC = () => {
         setDuration({ days, hours, minutes });
       }
     }
-  }, [useDuration, startTime, endTime]);
+  }, [useDuration]); // Only depend on useDuration toggle, not on startTime/endTime
   
   // Reset form
   const resetForm = () => {
@@ -133,14 +173,6 @@ const AddBlockForm: React.FC = () => {
   
   const handleSaveAsStandardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSaveAsStandard(e.target.checked);
-  };
-  
-  // Handle duration input changes
-  const handleDurationChange = (field: 'days' | 'hours' | 'minutes', value: number) => {
-    setDuration(prev => ({
-      ...prev,
-      [field]: value
-    }));
   };
   
   // Toggle between duration mode and direct end time selection
