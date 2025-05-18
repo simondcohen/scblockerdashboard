@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Block } from '../types';
 import { formatDuration } from '../utils/timeUtils';
-import { CheckCircle2, FileText } from 'lucide-react';
+import { CheckCircle2, FileText, History } from 'lucide-react';
 import { BlockActions } from './BlockActions';
+import { Link } from 'react-router-dom';
 
 interface CompletedBlocksListProps {
   blocks: Block[];
@@ -74,6 +75,17 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
           )}
         </div>
       )}
+      
+      {/* History button */}
+      <div className="mt-4 pt-4 border-t">
+        <Link 
+          to="/history" 
+          className="flex items-center justify-center w-full text-sm text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors"
+        >
+          <History className="h-4 w-4 mr-1" />
+          View Complete History
+        </Link>
+      </div>
     </div>
   );
 };
