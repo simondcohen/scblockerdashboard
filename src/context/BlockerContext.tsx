@@ -21,13 +21,82 @@ export const useBlocker = () => {
 
 const STORAGE_KEY = 'tech-blocker-blocks';
 
+// Helper function to generate recurring blocks
+const generateRecurringBlocks = (block: Omit<Block, 'id'>): Block[] => {
+  if (!block.recurring) {
+    return [{
+      ...block,
+      id: Date.now()
+    }];
+  }
+
+  const blocks: Block[] = [];
+  const { interval, daysOfWeek, endDate } = block.recurring;
+  
+  // If it's a weekly recurrence without selected days, return empty array
+  if (interval === 'weekly' && (!daysOfWeek || daysOfWeek.length === 0)) {
+    return blocks;
+  }
+
+  let currentStart = new Date(block.startTime);
+  let currentEnd = new Date(block.endTime);
+  const duration = currentEnd.getTime() - currentStart.getTime();
+
+  // Function to check if we should create a block for the current date
+  const shouldCreateBlock = (date: Date): boolean => {
+    if (interval !== 'weekly' || !daysOfWeek) return true;
+    return daysOfWeek.includes(date.getDay());
+  };
+
+  // Function to get the next valid date based on interval
+  const getNextDate = (date: Date): Date => {
+    const next = new Date(date);
+    switch (interval) {
+      case 'daily':
+        next.setDate(next.getDate() + 1);
+        break;
+      case 'weekly':
+        // Find the next selected day of the week
+        let daysToAdd = 1;
+        while (!daysOfWeek?.includes((next.getDay() + daysToAdd) % 7)) {
+          daysToAdd++;
+        }
+        next.setDate(next.getDate() + daysToAdd);
+        break;
+    }
+    return next;
+  };
+
+  // Generate blocks until we reach the end date (if specified) or for a reasonable number of occurrences
+  const maxOccurrences = endDate ? 365 : 52; // Limit to 1 year if no end date
+  let occurrences = 0;
+
+  while (occurrences < maxOccurrences && (!endDate || currentStart <= endDate)) {
+    if (shouldCreateBlock(currentStart)) {
+      blocks.push({
+        ...block,
+        id: Date.now() + blocks.length,
+        startTime: new Date(currentStart),
+        endTime: new Date(currentEnd)
+      });
+      occurrences++;
+    }
+
+    // Move to next occurrence
+    currentStart = getNextDate(currentStart);
+    currentEnd = new Date(currentStart.getTime() + duration);
+  }
+
+  return blocks;
+};
+
 export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [blocks, setBlocks] = useState<Block[]>(() => {
     try {
       const savedBlocks = localStorage.getItem(STORAGE_KEY);
       if (savedBlocks) {
         const parsedBlocks = JSON.parse(savedBlocks, (key, value) => {
-          if (key === 'startTime' || key === 'endTime') {
+          if (key === 'startTime' || key === 'endTime' || key === 'endDate') {
             const date = new Date(value);
             return new Date(
               date.getFullYear(),
@@ -87,13 +156,8 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [blocks]);
   
   const addBlock = (block: Omit<Block, 'id'>) => {
-    const newBlock = {
-      ...block,
-      id: Date.now(),
-      startTime: block.startTime,
-      endTime: block.endTime
-    };
-    setBlocks(prevBlocks => [...prevBlocks, newBlock]);
+    const newBlocks = generateRecurringBlocks(block);
+    setBlocks(prevBlocks => [...prevBlocks, ...newBlocks]);
   };
 
   const updateBlock = (id: number, block: Omit<Block, 'id'>) => {
