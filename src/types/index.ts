@@ -4,6 +4,11 @@ export interface Block {
   startTime: Date;
   endTime: Date;
   notes?: string;
+  recurring?: {
+    interval: 'daily' | 'weekly';
+    daysOfWeek?: number[]; // 0-6 for Sunday-Saturday
+    endDate?: Date;
+  };
 }
 
 export interface StandardBlock {
@@ -15,6 +20,7 @@ export interface RemainingTime {
   text: string;
   expired: boolean;
   totalMinutes?: number;
+  days?: number;
   hours?: number;
   minutes?: number;
   seconds?: number;

@@ -90,14 +90,23 @@ export const calculateRemainingTime = (endTime: Date, currentTime: Date): Remain
     const diff = endTime.getTime() - currentTime.getTime();
     if (diff <= 0) return { text: 'Completed', expired: true };
     
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     
+    let text = '';
+    if (days > 0) {
+      text = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    } else {
+      text = `${hours}h ${minutes}m ${seconds}s`;
+    }
+    
     return { 
-      text: `${hours}h ${minutes}m ${seconds}s`,
+      text,
       expired: false,
       totalMinutes: Math.floor(diff / (1000 * 60)),
+      days,
       hours,
       minutes,
       seconds
@@ -127,12 +136,26 @@ export const calculateProgress = (startTime: Date, endTime: Date, currentTime: D
 export const formatDuration = (startTime: Date, endTime: Date): string => {
   try {
     const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+    
     if (durationMinutes < 60) {
       return `${durationMinutes} minutes`;
     }
-    const hours = Math.floor(durationMinutes / 60);
+    
+    const days = Math.floor(durationMinutes / (60 * 24));
+    const hours = Math.floor((durationMinutes % (60 * 24)) / 60);
     const minutes = durationMinutes % 60;
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours} hours`;
+    
+    if (days > 0) {
+      return minutes > 0 
+        ? `${days}d ${hours}h ${minutes}m` 
+        : hours > 0 
+          ? `${days}d ${hours}h` 
+          : `${days} days`;
+    } else {
+      return minutes > 0 
+        ? `${hours}h ${minutes}m` 
+        : `${hours} hours`;
+    }
   } catch (error) {
     console.error("Error formatting duration:", error);
     return "Unknown duration";
