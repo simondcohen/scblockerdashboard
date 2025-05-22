@@ -11,7 +11,7 @@ const BlockerDashboard: React.FC = () => {
   // Filter blocks by status
   const activeBlocks = blocks.filter(block => 
     currentTime >= block.startTime && currentTime < block.endTime
-  );
+  ).sort((a, b) => a.endTime.getTime() - b.endTime.getTime());
   
   const upcomingBlocks = blocks.filter(block => 
     currentTime < block.startTime
