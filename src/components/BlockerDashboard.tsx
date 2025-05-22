@@ -26,8 +26,8 @@ const BlockerDashboard: React.FC = () => {
     block.endTime.toDateString() === currentTime.toDateString()
   );
   
-  // Extract the names of active blocks for checking required blocks
-  const activeBlockNames = activeBlocks.map(block => block.name);
+  // Active and upcoming blocks for required blocks tracking
+  const activeAndUpcomingBlocks = [...activeBlocks, ...upcomingBlocks];
   
   return (
     <div>
@@ -37,7 +37,10 @@ const BlockerDashboard: React.FC = () => {
       </div>
       
       {/* Required Blocks Manager */}
-      <RequiredBlocksManager activeBlockNames={activeBlockNames} />
+      <RequiredBlocksManager 
+        activeBlocks={activeBlocks}
+        allBlocks={activeAndUpcomingBlocks}
+      />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Blocks (Main Focus) */}

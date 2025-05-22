@@ -263,3 +263,23 @@ export const updateDateAndTime = (current: Date|null, newDate?: string, newTime?
   
   return result;
 };
+
+// Format remaining time in a simplified format (days and hours only)
+export const formatSimplifiedRemainingTime = (endTime: Date, currentTime: Date): string => {
+  try {
+    const diff = endTime.getTime() - currentTime.getTime();
+    if (diff <= 0) return 'Expired';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else {
+      return `${hours}h`;
+    }
+  } catch (error) {
+    console.error("Error calculating simplified remaining time:", error);
+    return 'Error';
+  }
+};

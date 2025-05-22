@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { useBlocker } from '../context/BlockerContext';
-import { Star, Trash2, PlusCircle, Star as StarIcon, AlertTriangle } from 'lucide-react';
-import { StandardBlock } from '../types';
+import { Star, Trash2, PlusCircle, Star as StarIcon, AlertTriangle, Clock } from 'lucide-react';
+import { StandardBlock, Block } from '../types';
+import { formatSimplifiedRemainingTime } from '../utils/timeUtils';
 
 const RequiredBlocksPage: React.FC = () => {
   const { standardBlocks, getRequiredBlocks, toggleRequiredStatus } = useStandardBlocks();
@@ -12,10 +13,47 @@ const RequiredBlocksPage: React.FC = () => {
   const nonRequiredStandardBlocks = standardBlocks.filter(block => !block.required);
   const requiredBlocks = getRequiredBlocks();
   
+  // Filter active and upcoming blocks
+  const activeBlocks = blocks.filter(block => 
+    currentTime >= block.startTime && currentTime < block.endTime
+  );
+  
+  const upcomingBlocks = blocks.filter(block => 
+    currentTime < block.startTime
+  );
+  
+  // Combine active and upcoming for scheduled blocks
+  const activeAndUpcomingBlocks = [...activeBlocks, ...upcomingBlocks];
+  
   // Get the names of currently active blocks
-  const activeBlockNames = blocks
-    .filter(block => currentTime >= block.startTime && currentTime < block.endTime)
-    .map(block => block.name);
+  const activeBlockNames = activeBlocks.map(block => block.name);
+  
+  // Get active/scheduled blocks for each required block
+  const getBlocksForRequiredBlock = (requiredBlock: StandardBlock) => {
+    return activeAndUpcomingBlocks.filter(block => block.name === requiredBlock.name);
+  };
+
+  // Find earliest end time for active/scheduled blocks for this required block
+  const getEarliestEndTime = (requiredBlock: StandardBlock) => {
+    const matchingBlocks = getBlocksForRequiredBlock(requiredBlock);
+    if (matchingBlocks.length === 0) return null;
+
+    // Sort by end time and take the earliest
+    return matchingBlocks.sort((a, b) => a.endTime.getTime() - b.endTime.getTime())[0].endTime;
+  };
+
+  // Sort required blocks by their end time (soonest first)
+  const sortedRequiredBlocks = [...requiredBlocks].sort((a, b) => {
+    const aEndTime = getEarliestEndTime(a);
+    const bEndTime = getEarliestEndTime(b);
+    
+    // If no matching blocks or end time, put at the end
+    if (!aEndTime) return 1;
+    if (!bEndTime) return -1;
+    
+    // Sort by earliest end time
+    return aEndTime.getTime() - bEndTime.getTime();
+  });
   
   return (
     <div>
@@ -33,14 +71,20 @@ const RequiredBlocksPage: React.FC = () => {
         <div className="mb-8">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">Current Required Blocks</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {requiredBlocks.map(block => (
-              <RequiredBlockCard 
-                key={block.id} 
-                block={block} 
-                isActive={activeBlockNames.includes(block.name)}
-                onRemoveRequired={() => toggleRequiredStatus(block.id)}
-              />
-            ))}
+            {sortedRequiredBlocks.map(block => {
+              const isActive = activeBlockNames.includes(block.name);
+              const earliestEndTime = getEarliestEndTime(block);
+              
+              return (
+                <RequiredBlockCard 
+                  key={block.id} 
+                  block={block} 
+                  isActive={isActive}
+                  endTime={earliestEndTime}
+                  onRemoveRequired={() => toggleRequiredStatus(block.id)}
+                />
+              );
+            })}
           </div>
         </div>
       ) : (
@@ -73,8 +117,12 @@ const RequiredBlocksPage: React.FC = () => {
 const RequiredBlockCard: React.FC<{
   block: StandardBlock;
   isActive: boolean;
+  endTime: Date | null;
   onRemoveRequired: () => void;
-}> = ({ block, isActive, onRemoveRequired }) => {
+}> = ({ block, isActive, endTime, onRemoveRequired }) => {
+  const now = new Date();
+  const timeRemaining = endTime ? formatSimplifiedRemainingTime(endTime, now) : null;
+  
   return (
     <div className={`border rounded-lg p-5 shadow-sm ${
       isActive 
@@ -102,6 +150,13 @@ const RequiredBlockCard: React.FC<{
               </>
             )}
           </div>
+          
+          {isActive && timeRemaining && (
+            <div className="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
+              <Clock size={12} />
+              <span>Expires in: {timeRemaining}</span>
+            </div>
+          )}
         </div>
         
         <button
