@@ -5,6 +5,7 @@ import { StandardBlocksProvider } from './context/StandardBlocksContext';
 import Layout from './components/Layout';
 import BlockerDashboard from './components/BlockerDashboard';
 import HistoryPage from './components/HistoryPage';
+import RequiredBlocksPage from './components/RequiredBlocksPage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
             <Routes>
               <Route path="/" element={<BlockerDashboard />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/required" element={<RequiredBlocksPage />} />
             </Routes>
           </Layout>
         </StandardBlocksProvider>

@@ -14,6 +14,7 @@ export interface Block {
 export interface StandardBlock {
   id: number;
   name: string;
+  required?: boolean;
 }
 
 export interface RemainingTime {

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Clock, History } from 'lucide-react';
+import { Clock, History, Star } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useStandardBlocks } from '../context/StandardBlocksContext';
+import { useBlocker } from '../context/BlockerContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +12,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const isHistoryActive = location.pathname === '/history';
   const isDashboardActive = location.pathname === '/';
+  const isRequiredActive = location.pathname === '/required';
+  
+  const { getRequiredBlocks } = useStandardBlocks();
+  const { blocks, currentTime } = useBlocker();
+  
+  // Get active block names for required blocks check
+  const activeBlockNames = blocks
+    .filter(block => currentTime >= block.startTime && currentTime < block.endTime)
+    .map(block => block.name);
+  
+  // Check if all required blocks are active
+  const requiredBlocks = getRequiredBlocks();
+  const allRequiredActive = requiredBlocks.length === 0 ? true : 
+    requiredBlocks.every(block => activeBlockNames.includes(block.name));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -32,6 +48,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 <Clock className={`h-4 w-4 mr-1.5 ${isDashboardActive ? 'text-blue-500' : 'text-gray-500'}`} />
                 Dashboard
+              </Link>
+              <Link 
+                to="/required" 
+                className={`px-3 py-2 rounded-md text-sm font-medium flex items-center ${
+                  isRequiredActive 
+                    ? 'bg-amber-50 text-amber-700' 
+                    : requiredBlocks.length > 0 && !allRequiredActive
+                      ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <Star className={`h-4 w-4 mr-1.5 ${
+                  isRequiredActive 
+                    ? 'text-amber-500' 
+                    : requiredBlocks.length > 0 && !allRequiredActive
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                }`} />
+                Required
+                {requiredBlocks.length > 0 && !allRequiredActive && (
+                  <span className="ml-1 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Link>
               <Link 
                 to="/history" 

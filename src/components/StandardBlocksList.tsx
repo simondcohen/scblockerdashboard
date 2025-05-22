@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { Trash2, Edit, Check, X, PlusCircle } from 'lucide-react';
+import { Trash2, Edit, Check, X, PlusCircle, Star, StarOff } from 'lucide-react';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { StandardBlock } from '../types';
 
 interface StandardBlockFormProps {
-  onSubmit: (name: string) => void;
+  onSubmit: (name: string, required?: boolean) => void;
   onCancel: () => void;
   initialName?: string;
+  initialRequired?: boolean;
   isEditing?: boolean;
 }
 
@@ -14,13 +15,19 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
   onSubmit, 
   onCancel, 
   initialName = '', 
+  initialRequired = false,
   isEditing = false 
 }) => {
   const [name, setName] = useState(initialName);
+  const [required, setRequired] = useState(initialRequired);
   const [error, setError] = useState('');
 
   const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
+  }, []);
+
+  const handleRequiredChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setRequired(e.target.checked);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -31,7 +38,7 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
       return;
     }
 
-    onSubmit(name.trim());
+    onSubmit(name.trim(), required);
   };
 
   return (
@@ -54,6 +61,19 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
           className="w-full p-2 border rounded text-sm focus:outline-none focus:border-blue-500"
           placeholder="e.g., Quick Meeting"
         />
+      </div>
+      
+      <div className="flex items-center">
+        <input
+          id="requiredBlock"
+          type="checkbox"
+          checked={required}
+          onChange={handleRequiredChange}
+          className="h-4 w-4 text-amber-500 focus:ring-amber-500 border-gray-300 rounded"
+        />
+        <label htmlFor="requiredBlock" className="ml-2 block text-sm text-gray-700">
+          Mark as required block
+        </label>
       </div>
       
       <div className="flex justify-end gap-2 pt-1">
@@ -80,12 +100,27 @@ const StandardBlockItem: React.FC<{
   onSelect: (block: StandardBlock) => void;
   onEdit: (block: StandardBlock) => void;
   onDelete: (id: number) => void;
-}> = ({ block, onSelect, onEdit, onDelete }) => {
+  onToggleRequired: (id: number) => void;
+}> = ({ block, onSelect, onEdit, onDelete, onToggleRequired }) => {
   return (
-    <div className="bg-white border rounded-lg p-3 hover:shadow-sm transition-shadow">
+    <div className={`${block.required ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} border rounded-lg p-3 hover:shadow-sm transition-shadow`}>
       <div className="flex justify-between items-start mb-3">
-        <h4 className="font-medium text-gray-800">{block.name}</h4>
+        <h4 className={`font-medium ${block.required ? 'text-amber-700' : 'text-gray-800'}`}>
+          {block.name}
+          {block.required && (
+            <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 rounded-full px-2 py-0.5">
+              Required
+            </span>
+          )}
+        </h4>
         <div className="flex gap-1">
+          <button
+            onClick={() => onToggleRequired(block.id)}
+            className={`${block.required ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'} transition-colors p-1`}
+            title={block.required ? "Remove required status" : "Mark as required"}
+          >
+            {block.required ? <Star size={16} /> : <StarOff size={16} />}
+          </button>
           <button
             onClick={() => onEdit(block)}
             className="text-gray-500 hover:text-blue-500 transition-colors p-1"
@@ -105,7 +140,10 @@ const StandardBlockItem: React.FC<{
       
       <button
         onClick={() => onSelect(block)}
-        className="w-full bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded text-sm transition-colors flex items-center justify-center gap-1"
+        className={`w-full ${block.required 
+          ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
+          : 'bg-green-100 hover:bg-green-200 text-green-700'} 
+          px-3 py-1.5 rounded text-sm transition-colors flex items-center justify-center gap-1`}
       >
         <PlusCircle size={14} /> Use Block
       </button>
@@ -116,18 +154,18 @@ const StandardBlockItem: React.FC<{
 const StandardBlocksList: React.FC<{
   onSelectBlock: (block: StandardBlock) => void;
 }> = ({ onSelectBlock }) => {
-  const { standardBlocks, addStandardBlock, updateStandardBlock, removeStandardBlock } = useStandardBlocks();
+  const { standardBlocks, addStandardBlock, updateStandardBlock, removeStandardBlock, toggleRequiredStatus } = useStandardBlocks();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBlock, setEditingBlock] = useState<StandardBlock | null>(null);
   
-  const handleAddBlock = (name: string) => {
-    addStandardBlock({ name });
+  const handleAddBlock = (name: string, required?: boolean) => {
+    addStandardBlock({ name, required });
     setShowAddForm(false);
   };
   
-  const handleUpdateBlock = (name: string) => {
+  const handleUpdateBlock = (name: string, required?: boolean) => {
     if (editingBlock) {
-      updateStandardBlock(editingBlock.id, { name });
+      updateStandardBlock(editingBlock.id, { name, required });
       setEditingBlock(null);
     }
   };
@@ -173,6 +211,7 @@ const StandardBlocksList: React.FC<{
         <div className="mb-4">
           <StandardBlockForm
             initialName={editingBlock.name}
+            initialRequired={editingBlock.required}
             onSubmit={handleUpdateBlock}
             onCancel={cancelEditing}
             isEditing
@@ -193,6 +232,7 @@ const StandardBlocksList: React.FC<{
               onSelect={onSelectBlock}
               onEdit={startEditing}
               onDelete={removeStandardBlock}
+              onToggleRequired={toggleRequiredStatus}
             />
           ))}
         </div>
