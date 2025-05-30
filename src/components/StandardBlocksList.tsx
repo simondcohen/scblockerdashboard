@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { Trash2, Edit, Check, X, PlusCircle, Star, StarOff } from 'lucide-react';
+import { Trash2, Edit, Check, X, PlusCircle, Star, StarOff, Clock } from 'lucide-react';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
+import { useBlocker } from '../context/BlockerContext';
+import { formatSimplifiedRemainingTime } from '../utils/timeUtils';
 import { StandardBlock } from '../types';
 
 interface StandardBlockFormProps {
@@ -95,21 +97,30 @@ const StandardBlockForm: React.FC<StandardBlockFormProps> = ({
   );
 };
 
-const StandardBlockItem: React.FC<{ 
+const StandardBlockItem: React.FC<{
   block: StandardBlock;
+  isActive: boolean;
+  endTime: Date | null;
   onSelect: (block: StandardBlock) => void;
   onEdit: (block: StandardBlock) => void;
   onDelete: (id: number) => void;
   onToggleRequired: (id: number) => void;
-}> = ({ block, onSelect, onEdit, onDelete, onToggleRequired }) => {
+}> = ({ block, isActive, endTime, onSelect, onEdit, onDelete, onToggleRequired }) => {
+  const now = new Date();
+  const timeRemaining = block.required && isActive && endTime
+    ? formatSimplifiedRemainingTime(endTime, now)
+    : null;
+
   return (
     <div className={`${block.required ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} border rounded-lg p-3 hover:shadow-sm transition-shadow`}>
       <div className="flex justify-between items-start mb-3">
         <h4 className={`font-medium ${block.required ? 'text-amber-700' : 'text-gray-800'}`}>
           {block.name}
           {block.required && (
-            <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 rounded-full px-2 py-0.5">
-              Required
+            <span
+              className={`ml-2 text-xs rounded-full px-2 py-0.5 ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+            >
+              Required • {isActive ? 'Active' : 'Inactive'}
             </span>
           )}
         </h4>
@@ -117,7 +128,7 @@ const StandardBlockItem: React.FC<{
           <button
             onClick={() => onToggleRequired(block.id)}
             className={`${block.required ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'} transition-colors p-1`}
-            title={block.required ? "Remove required status" : "Mark as required"}
+            title={block.required ? 'Remove required status' : 'Mark as required'}
           >
             {block.required ? <Star size={16} /> : <StarOff size={16} />}
           </button>
@@ -137,12 +148,19 @@ const StandardBlockItem: React.FC<{
           </button>
         </div>
       </div>
-      
+
+      {timeRemaining && (
+        <div className="text-xs text-blue-600 mb-2 flex items-center gap-1">
+          <Clock size={12} />
+          <span>Expires in: {timeRemaining}</span>
+        </div>
+      )}
+
       <button
         onClick={() => onSelect(block)}
-        className={`w-full ${block.required 
-          ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
-          : 'bg-green-100 hover:bg-green-200 text-green-700'} 
+        className={`w-full ${block.required
+          ? 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+          : 'bg-green-100 hover:bg-green-200 text-green-700'}
           px-3 py-1.5 rounded text-sm transition-colors flex items-center justify-center gap-1`}
       >
         <PlusCircle size={14} /> Use Block
@@ -155,6 +173,7 @@ const StandardBlocksList: React.FC<{
   onSelectBlock: (block: StandardBlock) => void;
 }> = ({ onSelectBlock }) => {
   const { standardBlocks, addStandardBlock, updateStandardBlock, removeStandardBlock, toggleRequiredStatus } = useStandardBlocks();
+  const { blocks, currentTime } = useBlocker();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBlock, setEditingBlock] = useState<StandardBlock | null>(null);
   
@@ -182,11 +201,52 @@ const StandardBlocksList: React.FC<{
   const cancelAdding = () => {
     setShowAddForm(false);
   };
+
+  // Determine active blocks and sort order
+  const activeBlocks = blocks.filter(
+    b => currentTime >= b.startTime && currentTime < b.endTime
+  );
+  const activeBlockNames = activeBlocks.map(b => b.name);
+  const activeAndUpcomingBlocks = blocks.filter(b => currentTime < b.endTime);
+
+  const blocksWithStatus = standardBlocks.map(block => {
+    const related = activeAndUpcomingBlocks.filter(b => b.name === block.name);
+    const earliest = related.sort((a, b) => a.endTime.getTime() - b.endTime.getTime())[0];
+    const endTime = earliest ? earliest.endTime : null;
+    const isActive = activeBlockNames.includes(block.name);
+    return { block, isActive, endTime };
+  });
+
+  const requiredBlocks = blocksWithStatus.filter(item => item.block.required);
+  const activeRequiredCount = requiredBlocks.filter(item => item.isActive).length;
+
+  const sortedBlocks = blocksWithStatus.sort((a, b) => {
+    if (a.block.required && !b.block.required) return -1;
+    if (!a.block.required && b.block.required) return 1;
+    if (a.block.required && b.block.required) {
+      if (!a.isActive && b.isActive) return -1;
+      if (a.isActive && !b.isActive) return 1;
+    }
+    return a.block.name.localeCompare(b.block.name);
+  });
   
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-lg font-semibold text-gray-800">Standard Blocks</h3>
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          Standard Blocks
+          {requiredBlocks.length > 0 && (
+            <span
+              className={`text-sm px-2 py-0.5 rounded-full ${
+                activeRequiredCount === requiredBlocks.length
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-600'
+              }`}
+            >
+              {activeRequiredCount}/{requiredBlocks.length} Required Active
+            </span>
+          )}
+        </h3>
         
         {!showAddForm && !editingBlock && (
           <button
@@ -225,10 +285,12 @@ const StandardBlocksList: React.FC<{
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {standardBlocks.map((block) => (
+          {sortedBlocks.map(({ block, isActive, endTime }) => (
             <StandardBlockItem
               key={block.id}
               block={block}
+              isActive={isActive}
+              endTime={endTime}
               onSelect={onSelectBlock}
               onEdit={startEditing}
               onDelete={removeStandardBlock}
