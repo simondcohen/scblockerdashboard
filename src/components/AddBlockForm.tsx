@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, X, Clock, ArrowRight, FileText, Repeat } from 'lucide-react';
+import { Plus, X, Clock, ArrowRight, FileText } from 'lucide-react';
 import { useBlocker } from '../context/BlockerContext';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { formatDateOnly, updateDateTimePart, formatDateForDateInput, formatTimeForTimeInput, updateDateAndTime } from '../utils/timeUtils';
 import StandardBlocksList from './StandardBlocksList';
 import { StandardBlock } from '../types';
-
-const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' }
-];
 
 const AddBlockForm: React.FC = () => {
   const { addBlock, currentTime } = useBlocker();
@@ -35,12 +25,7 @@ const AddBlockForm: React.FC = () => {
     minutes: 0
   });
   
-  // Recurring block state
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringInterval, setRecurringInterval] = useState<'daily' | 'weekly'>('daily');
-  const [selectedDaysOfWeek, setSelectedDaysOfWeek] = useState<number[]>([]);
-  const [recurringEndDate, setRecurringEndDate] = useState<Date | null>(null);
-  const [hasEndDate, setHasEndDate] = useState(false);
+
   
   const [formError, setFormError] = useState('');
   const [saveAsStandard, setSaveAsStandard] = useState(false);
@@ -175,11 +160,6 @@ const AddBlockForm: React.FC = () => {
       hours: 1,
       minutes: 0
     });
-    setIsRecurring(false);
-    setRecurringInterval('daily');
-    setSelectedDaysOfWeek([]);
-    setRecurringEndDate(null);
-    setHasEndDate(false);
   };
   
   // Toggle form visibility
@@ -256,15 +236,7 @@ const AddBlockForm: React.FC = () => {
       return;
     }
 
-    if (isRecurring && recurringInterval === 'weekly' && selectedDaysOfWeek.length === 0) {
-      setFormError('Please select at least one day of the week');
-      return;
-    }
 
-    if (isRecurring && hasEndDate && !recurringEndDate) {
-      setFormError('Please select an end date for the recurring block');
-      return;
-    }
     
     try {
       // Get the actual current system time for validation
@@ -275,21 +247,11 @@ const AddBlockForm: React.FC = () => {
         return;
       }
 
-      if (isRecurring && hasEndDate && recurringEndDate && recurringEndDate < startTime) {
-        setFormError('Recurring end date must be after start time');
-        return;
-      }
-      
       addBlock({
         name: blockName.trim(),
         startTime: startTime,
         endTime: endTime,
-        notes: notes.trim(),
-        recurring: isRecurring ? {
-          interval: recurringInterval,
-          daysOfWeek: recurringInterval === 'weekly' ? selectedDaysOfWeek : undefined,
-          endDate: hasEndDate ? recurringEndDate || undefined : undefined
-        } : undefined
+        notes: notes.trim()
       });
       
       // Save as standard block if checkbox is checked
@@ -597,105 +559,7 @@ const AddBlockForm: React.FC = () => {
           </div>
         </div>
         
-        <div className="mb-4">
-          <label className="flex items-center cursor-pointer space-x-2">
-            <input
-              type="checkbox"
-              checked={isRecurring}
-              onChange={(e) => setIsRecurring(e.target.checked)}
-              className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <span className="text-gray-700 flex items-center gap-1">
-              <Repeat size={16} /> Make this a recurring block
-            </span>
-          </label>
-        </div>
 
-        {isRecurring && (
-          <div className="mb-4 space-y-4 p-4 bg-gray-50 rounded-lg border">
-            <div>
-              <label htmlFor="recurringInterval" className="block font-medium mb-1 text-gray-700">
-                Repeat every:
-              </label>
-              <select
-                id="recurringInterval"
-                value={recurringInterval}
-                onChange={(e) => {
-                  const value = e.target.value as 'daily' | 'weekly';
-                  setRecurringInterval(value);
-                  if (value !== 'weekly') {
-                    setSelectedDaysOfWeek([]);
-                  }
-                }}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-shadow"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-              </select>
-            </div>
-
-            {recurringInterval === 'weekly' && (
-              <div>
-                <label className="block font-medium mb-2 text-gray-700">
-                  Repeat on:
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {DAYS_OF_WEEK.map(({ value, label }) => (
-                    <label
-                      key={value}
-                      className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedDaysOfWeek.includes(value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedDaysOfWeek([...selectedDaysOfWeek, value].sort());
-                          } else {
-                            setSelectedDaysOfWeek(selectedDaysOfWeek.filter(day => day !== value));
-                          }
-                        }}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="flex items-center cursor-pointer space-x-2 mb-2">
-                <input
-                  type="checkbox"
-                  checked={hasEndDate}
-                  onChange={(e) => setHasEndDate(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <span className="text-gray-700">Set end date</span>
-              </label>
-
-              {hasEndDate && (
-                <div>
-                  <label htmlFor="recurringEndDate" className="block font-medium mb-1 text-gray-700">
-                    End date:
-                  </label>
-                  <input
-                    id="recurringEndDate"
-                    type="date"
-                    value={recurringEndDate ? formatDateForDateInput(recurringEndDate) : ''}
-                    onChange={(e) => {
-                      const date = new Date(e.target.value);
-                      setRecurringEndDate(date);
-                    }}
-                    min={startTime ? formatDateForDateInput(startTime) : undefined}
-                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-shadow"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         
         <div className="mb-4">
           <label htmlFor="blockNotes" className="block font-medium mb-1 text-gray-700 flex items-center gap-1.5">

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Block } from '../types';
 import { formatDuration } from '../utils/timeUtils';
-import { CalendarClock, FileText } from 'lucide-react';
+import { CalendarClock, FileText, Trash2 } from 'lucide-react';
 import { BlockActions } from './BlockActions';
+import { useBlocker } from '../context/BlockerContext';
 
 interface UpcomingBlocksListProps {
   blocks: Block[];
@@ -10,13 +11,39 @@ interface UpcomingBlocksListProps {
 
 const UpcomingBlocksList: React.FC<UpcomingBlocksListProps> = ({ blocks }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const { removeUpcomingBlocks } = useBlocker();
+
+  const handleBulkDelete = () => {
+    if (blocks.length === 0) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete all ${blocks.length} upcoming block${blocks.length > 1 ? 's' : ''}? This action cannot be undone.`
+    );
+    
+    if (confirmed) {
+      removeUpcomingBlocks();
+    }
+  };
 
   return (
     <div className="bg-white border rounded-lg p-6 shadow-sm">
-      <h2 className="text-lg font-semibold mb-4 text-blue-600 flex items-center gap-2">
-        <CalendarClock className="h-5 w-5" />
-        Upcoming Blocks <span className="ml-2 bg-blue-100 text-blue-800 text-sm rounded-full px-2 py-0.5">{blocks.length}</span>
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-blue-600 flex items-center gap-2">
+          <CalendarClock className="h-5 w-5" />
+          Upcoming Blocks <span className="ml-2 bg-blue-100 text-blue-800 text-sm rounded-full px-2 py-0.5">{blocks.length}</span>
+        </h2>
+        
+        {blocks.length > 0 && (
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+            title="Delete all upcoming blocks"
+          >
+            <Trash2 size={14} />
+            Clear All
+          </button>
+        )}
+      </div>
       
       {blocks.length === 0 ? (
         <p className="text-gray-500 text-sm py-4">No scheduled blocks</p>
