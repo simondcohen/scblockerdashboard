@@ -4,7 +4,6 @@ import AddBlockForm from './AddBlockForm';
 import ActiveBlocksList from './ActiveBlocksList';
 import UpcomingBlocksList from './UpcomingBlocksList';
 import CompletedBlocksList from './CompletedBlocksList';
-import RequiredBlocksManager from './RequiredBlocksManager';
 
 const BlockerDashboard: React.FC = () => {
   const { blocks, currentTime } = useBlocker();
@@ -26,8 +25,6 @@ const BlockerDashboard: React.FC = () => {
     block.endTime.toDateString() === currentTime.toDateString()
   );
   
-  // Active and upcoming blocks for required blocks tracking
-  const activeAndUpcomingBlocks = [...activeBlocks, ...upcomingBlocks];
   
   return (
     <div>
@@ -36,11 +33,6 @@ const BlockerDashboard: React.FC = () => {
         <AddBlockForm />
       </div>
       
-      {/* Required Blocks Manager */}
-      <RequiredBlocksManager 
-        activeBlocks={activeBlocks}
-        allBlocks={activeAndUpcomingBlocks}
-      />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Blocks (Main Focus) */}
