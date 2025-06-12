@@ -112,60 +112,50 @@ const StandardBlockItem: React.FC<{
     : null;
 
   return (
-    <div className={`${block.required ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} border rounded-lg p-3 hover:shadow-sm transition-shadow`}>
-      <div className="flex justify-between items-start mb-3">
-        <h4 className={`font-medium ${block.required ? 'text-amber-700' : 'text-gray-800'}`}>
-          {block.name}
-          {block.required && (
-            <span
-              className={`ml-2 text-xs rounded-full px-2 py-0.5 ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-            >
-              Required • {isActive ? 'Active' : 'Inactive'}
-            </span>
-          )}
-        </h4>
-        <div className="flex gap-1">
-          <button
-            onClick={() => onToggleRequired(block.id)}
-            className={`${block.required ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'} transition-colors p-1`}
-            title={block.required ? 'Remove required status' : 'Mark as required'}
-          >
-            {block.required ? <Star size={16} /> : <StarOff size={16} />}
-          </button>
-          <button
-            onClick={() => onEdit(block)}
-            className="text-gray-500 hover:text-blue-500 transition-colors p-1"
-            title="Edit block"
-          >
-            <Edit size={16} />
-          </button>
-          <button
-            onClick={() => onDelete(block.id)}
-            className="text-gray-500 hover:text-red-500 transition-colors p-1"
-            title="Delete block"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+    <li className={`group flex items-center justify-between gap-3 px-3 py-2 ${block.required ? 'bg-yellow-50' : 'bg-white'}`}>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <button
+          onClick={() => onToggleRequired(block.id)}
+          className={`${block.required ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-500'} transition-colors`}
+          title={block.required ? 'Remove required status' : 'Mark as required'}
+        >
+          {block.required ? <Star size={16} /> : <StarOff size={16} />}
+        </button>
+        <span className={`font-medium truncate ${block.required ? 'text-amber-700' : 'text-gray-800'}`}>{block.name}</span>
+        {block.required && (
+          <span className={`ml-2 text-xs rounded-full px-2 py-0.5 ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{isActive ? 'Active' : 'Inactive'}</span>
+        )}
+        {timeRemaining && (
+          <span className="ml-2 text-xs text-blue-600 flex items-center gap-1">
+            <Clock size={12} />
+            {timeRemaining}
+          </span>
+        )}
       </div>
 
-      {timeRemaining && (
-        <div className="text-xs text-blue-600 mb-2 flex items-center gap-1">
-          <Clock size={12} />
-          <span>Expires in: {timeRemaining}</span>
-        </div>
-      )}
-
-      <button
-        onClick={() => onSelect(block)}
-        className={`w-full ${block.required
-          ? 'bg-amber-100 hover:bg-amber-200 text-amber-700'
-          : 'bg-green-100 hover:bg-green-200 text-green-700'}
-          px-3 py-1.5 rounded text-sm transition-colors flex items-center justify-center gap-1`}
-      >
-        <PlusCircle size={14} /> Use Block
-      </button>
-    </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={() => onEdit(block)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-blue-500 p-1"
+          title="Edit block"
+        >
+          <Edit size={16} />
+        </button>
+        <button
+          onClick={() => onDelete(block.id)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
+          title="Delete block"
+        >
+          <Trash2 size={16} />
+        </button>
+        <button
+          onClick={() => onSelect(block)}
+          className={`flex items-center gap-1 text-sm px-2 py-1 rounded ${block.required ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'bg-green-100 hover:bg-green-200 text-green-700'} transition-colors`}
+        >
+          <PlusCircle size={14} /> Use
+        </button>
+      </div>
+    </li>
   );
 };
 
@@ -229,6 +219,9 @@ const StandardBlocksList: React.FC<{
     }
     return a.block.name.localeCompare(b.block.name);
   });
+
+  const sortedRequiredBlocks = sortedBlocks.filter(item => item.block.required);
+  const sortedNonRequiredBlocks = sortedBlocks.filter(item => !item.block.required);
   
   return (
     <div className="mb-6">
@@ -284,19 +277,47 @@ const StandardBlocksList: React.FC<{
           <p className="text-gray-500">No standard blocks yet. Add some to quickly create new blocks.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {sortedBlocks.map(({ block, isActive, endTime }) => (
-            <StandardBlockItem
-              key={block.id}
-              block={block}
-              isActive={isActive}
-              endTime={endTime}
-              onSelect={onSelectBlock}
-              onEdit={startEditing}
-              onDelete={removeStandardBlock}
-              onToggleRequired={toggleRequiredStatus}
-            />
-          ))}
+        <div className="space-y-6">
+          {sortedRequiredBlocks.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-amber-700 mb-2">Required Blocks</h4>
+              <ul className="divide-y rounded-lg border overflow-hidden">
+                {sortedRequiredBlocks.map(({ block, isActive, endTime }) => (
+                  <StandardBlockItem
+                    key={block.id}
+                    block={block}
+                    isActive={isActive}
+                    endTime={endTime}
+                    onSelect={onSelectBlock}
+                    onEdit={startEditing}
+                    onDelete={removeStandardBlock}
+                    onToggleRequired={toggleRequiredStatus}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+          {sortedNonRequiredBlocks.length > 0 && (
+            <div>
+              {sortedRequiredBlocks.length > 0 && (
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Standard Blocks</h4>
+              )}
+              <ul className="divide-y rounded-lg border overflow-hidden">
+                {sortedNonRequiredBlocks.map(({ block, isActive, endTime }) => (
+                  <StandardBlockItem
+                    key={block.id}
+                    block={block}
+                    isActive={isActive}
+                    endTime={endTime}
+                    onSelect={onSelectBlock}
+                    onEdit={startEditing}
+                    onDelete={removeStandardBlock}
+                    onToggleRequired={toggleRequiredStatus}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
