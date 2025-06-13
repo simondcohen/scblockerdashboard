@@ -9,6 +9,7 @@ interface BlockerContextType {
   removeBlock: (id: number) => void;
   removeUpcomingBlocks: () => void;
   currentTime: Date;
+  isLoading: boolean;
 }
 
 const BlockerContext = createContext<BlockerContextType | undefined>(undefined);
@@ -23,6 +24,8 @@ export const useBlocker = () => {
 
 export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Initialize currentTime with a fresh Date object
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
@@ -46,20 +49,40 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-    storageService.init().then(() => {
-      setBlocks(storageService.getBlocks());
-      const cb = (b: Block[]) => setBlocks(b);
-      storageService.subscribeBlocks(cb);
-      cleanup = () => storageService.unsubscribeBlocks(cb);
-    });
+    
+    const initializeStorage = async () => {
+      try {
+        setIsLoading(true);
+        await storageService.init();
+        setBlocks(storageService.getBlocks());
+        setIsInitialized(true);
+        
+        const cb = (b: Block[]) => setBlocks(b);
+        storageService.subscribeBlocks(cb);
+        cleanup = () => storageService.unsubscribeBlocks(cb);
+      } catch (error) {
+        console.error('Failed to initialize storage:', error);
+        // Even if initialization fails, we should still set up with empty state
+        setBlocks([]);
+        setIsInitialized(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeStorage();
+
     return () => {
       if (cleanup) cleanup();
     };
   }, []);
 
+  // Only update storage after initialization is complete and we're not loading
   useEffect(() => {
-    storageService.setBlocks(blocks);
-  }, [blocks]);
+    if (isInitialized && !isLoading) {
+      storageService.setBlocks(blocks);
+    }
+  }, [blocks, isInitialized, isLoading]);
   
   const addBlock = (block: Omit<Block, 'id'>) => {
     const newBlock = {
@@ -94,6 +117,7 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         removeBlock,
         removeUpcomingBlocks,
         currentTime,
+        isLoading,
       }}
     >
       {children}

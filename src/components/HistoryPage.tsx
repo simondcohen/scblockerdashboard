@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { BlockActions } from './BlockActions';
 
 const HistoryPage: React.FC = () => {
-  const { blocks } = useBlocker();
+  const { blocks, isLoading } = useBlocker();
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [availableDates, setAvailableDates] = useState<Date[]>([]);
@@ -60,6 +60,19 @@ const HistoryPage: React.FC = () => {
     block.endTime.toDateString() === selectedDate.toDateString() && 
     block.endTime <= new Date()
   ).sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
+
+  // Show loading state while storage is initializing
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Block History</h2>
+          <p className="text-gray-600">Fetching your completed blocks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -21,18 +21,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isDashboardActive = location.pathname === '/';
   const isRequiredActive = location.pathname === '/required';
   
-  const { getRequiredBlocks } = useStandardBlocks();
-  const { blocks, currentTime } = useBlocker();
+  const { getRequiredBlocks, isLoading: standardBlocksLoading } = useStandardBlocks();
+  const { blocks, currentTime, isLoading: blocksLoading } = useBlocker();
   
   // Get active block names for required blocks check
   const activeBlockNames = blocks
     .filter(block => currentTime >= block.startTime && currentTime < block.endTime)
     .map(block => block.name);
   
-  // Check if all required blocks are active
+  // Check if all required blocks are active (only if not loading)
   const requiredBlocks = getRequiredBlocks();
-  const allRequiredActive = requiredBlocks.length === 0 ? true : 
-    requiredBlocks.every(block => activeBlockNames.includes(block.name));
+  const allRequiredActive = (blocksLoading || standardBlocksLoading) ? true : 
+    (requiredBlocks.length === 0 ? true : 
+      requiredBlocks.every(block => activeBlockNames.includes(block.name)));
 
   const downloadBackup = () => {
     try {

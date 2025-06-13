@@ -6,8 +6,8 @@ import { StandardBlock } from '../types';
 import { formatSimplifiedRemainingTime } from '../utils/timeUtils';
 
 const RequiredBlocksPage: React.FC = () => {
-  const { standardBlocks, getRequiredBlocks, toggleRequiredStatus } = useStandardBlocks();
-  const { blocks, currentTime } = useBlocker();
+  const { standardBlocks, getRequiredBlocks, toggleRequiredStatus, isLoading: standardBlocksLoading } = useStandardBlocks();
+  const { blocks, currentTime, isLoading: blocksLoading } = useBlocker();
   
   // Filter standard blocks that are not already required
   const nonRequiredStandardBlocks = standardBlocks.filter(block => !block.required);
@@ -55,6 +55,19 @@ const RequiredBlocksPage: React.FC = () => {
     return aEndTime.getTime() - bEndTime.getTime();
   });
   
+  // Show loading state while storage is initializing
+  if (blocksLoading || standardBlocksLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Required Blocks</h2>
+          <p className="text-gray-600">Setting up your required blocks management...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-8">

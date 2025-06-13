@@ -10,6 +10,7 @@ interface StandardBlocksContextType {
   toggleRequiredStatus: (id: number) => void;
   getRequiredBlocks: () => StandardBlock[];
   areAllRequiredBlocksActive: (activeBlockNames: string[]) => boolean;
+  isLoading: boolean;
 }
 
 const StandardBlocksContext = createContext<StandardBlocksContextType | undefined>(undefined);
@@ -24,23 +25,45 @@ export const useStandardBlocks = () => {
 
 export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-    storageService.init().then(() => {
-      setStandardBlocks(storageService.getStandardBlocks());
-      const cb = (b: StandardBlock[]) => setStandardBlocks(b);
-      storageService.subscribeStandard(cb);
-      cleanup = () => storageService.unsubscribeStandard(cb);
-    });
+    
+    const initializeStorage = async () => {
+      try {
+        setIsLoading(true);
+        await storageService.init();
+        setStandardBlocks(storageService.getStandardBlocks());
+        setIsInitialized(true);
+        
+        const cb = (b: StandardBlock[]) => setStandardBlocks(b);
+        storageService.subscribeStandard(cb);
+        cleanup = () => storageService.unsubscribeStandard(cb);
+      } catch (error) {
+        console.error('Failed to initialize storage:', error);
+        // Even if initialization fails, we should still set up with empty state
+        setStandardBlocks([]);
+        setIsInitialized(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeStorage();
+
     return () => {
       if (cleanup) cleanup();
     };
   }, []);
 
+  // Only update storage after initialization is complete and we're not loading
   useEffect(() => {
-    storageService.setStandardBlocks(standardBlocks);
-  }, [standardBlocks]);
+    if (isInitialized && !isLoading) {
+      storageService.setStandardBlocks(standardBlocks);
+    }
+  }, [standardBlocks, isInitialized, isLoading]);
   
   const addStandardBlock = (block: Omit<StandardBlock, 'id'>) => {
     const newBlock = {
@@ -92,7 +115,8 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
         removeStandardBlock,
         toggleRequiredStatus,
         getRequiredBlocks,
-        areAllRequiredBlocksActive
+        areAllRequiredBlocksActive,
+        isLoading,
       }}
     >
       {children}

@@ -4,9 +4,23 @@ import AddBlockForm from './AddBlockForm';
 import ActiveBlocksList from './ActiveBlocksList';
 import UpcomingBlocksList from './UpcomingBlocksList';
 import CompletedBlocksList from './CompletedBlocksList';
+import { Loader2 } from 'lucide-react';
 
 const BlockerDashboard: React.FC = () => {
-  const { blocks, currentTime } = useBlocker();
+  const { blocks, currentTime, isLoading } = useBlocker();
+  
+  // Show loading state while storage is initializing
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Blocker Dashboard</h2>
+          <p className="text-gray-600">Initializing storage and loading your blocks...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Filter blocks by status
   const activeBlocks = blocks.filter(block => 
