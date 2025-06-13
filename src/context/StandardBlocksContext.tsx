@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { StandardBlock } from '../types';
+import { storageService } from '../utils/storageService';
 
 interface StandardBlocksContextType {
   standardBlocks: StandardBlock[];
@@ -21,34 +22,24 @@ export const useStandardBlocks = () => {
   return context;
 };
 
-const STORAGE_KEY = 'tech-blocker-standard-blocks';
-
 export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>(() => {
-    try {
-      const savedBlocks = localStorage.getItem(STORAGE_KEY);
-      if (savedBlocks) {
-        const parsedBlocks = JSON.parse(savedBlocks);
-        
-        if (Array.isArray(parsedBlocks) && parsedBlocks.every(block => 
-          typeof block.id === 'number' &&
-          typeof block.name === 'string'
-        )) {
-          return parsedBlocks;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading standard blocks from localStorage:', error);
-    }
-    return [];
-  });
+  const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>([]);
   
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(standardBlocks));
-    } catch (error) {
-      console.error('Error saving standard blocks to localStorage:', error);
-    }
+    let cleanup: (() => void) | undefined;
+    storageService.init().then(() => {
+      setStandardBlocks(storageService.getStandardBlocks());
+      const cb = (b: StandardBlock[]) => setStandardBlocks(b);
+      storageService.subscribeStandard(cb);
+      cleanup = () => storageService.unsubscribeStandard(cb);
+    });
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    storageService.setStandardBlocks(standardBlocks);
   }, [standardBlocks]);
   
   const addStandardBlock = (block: Omit<StandardBlock, 'id'>) => {

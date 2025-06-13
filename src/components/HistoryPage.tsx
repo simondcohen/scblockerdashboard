@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useBlocker } from '../context/BlockerContext';
-import { Block } from '../types';
 import { formatDuration } from '../utils/timeUtils';
 import { CheckCircle2, FileText, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';

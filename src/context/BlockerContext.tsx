@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Block } from '../types';
+import { storageService } from '../utils/storageService';
 
 interface BlockerContextType {
   blocks: Block[];
@@ -20,46 +21,8 @@ export const useBlocker = () => {
   return context;
 };
 
-const STORAGE_KEY = 'tech-blocker-blocks';
-
-
-
 export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [blocks, setBlocks] = useState<Block[]>(() => {
-    try {
-      const savedBlocks = localStorage.getItem(STORAGE_KEY);
-      if (savedBlocks) {
-        const parsedBlocks = JSON.parse(savedBlocks, (key, value) => {
-          if (key === 'startTime' || key === 'endTime') {
-            const date = new Date(value);
-            return new Date(
-              date.getFullYear(),
-              date.getMonth(),
-              date.getDate(),
-              date.getHours(),
-              date.getMinutes(),
-              date.getSeconds()
-            );
-          }
-          return value;
-        });
-        
-        if (Array.isArray(parsedBlocks) && parsedBlocks.every(block => 
-          typeof block.id === 'number' &&
-          typeof block.name === 'string' &&
-          block.startTime instanceof Date &&
-          block.endTime instanceof Date &&
-          !isNaN(block.startTime.getTime()) &&
-          !isNaN(block.endTime.getTime())
-        )) {
-          return parsedBlocks;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading blocks from localStorage:', error);
-    }
-    return [];
-  });
+  const [blocks, setBlocks] = useState<Block[]>([]);
   
   // Initialize currentTime with a fresh Date object
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
@@ -82,11 +45,20 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
   
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(blocks));
-    } catch (error) {
-      console.error('Error saving blocks to localStorage:', error);
-    }
+    let cleanup: (() => void) | undefined;
+    storageService.init().then(() => {
+      setBlocks(storageService.getBlocks());
+      const cb = (b: Block[]) => setBlocks(b);
+      storageService.subscribeBlocks(cb);
+      cleanup = () => storageService.unsubscribeBlocks(cb);
+    });
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    storageService.setBlocks(blocks);
   }, [blocks]);
   
   const addBlock = (block: Omit<Block, 'id'>) => {
