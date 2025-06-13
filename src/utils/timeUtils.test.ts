@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { updateDateAndTime, formatTimeForTimeInput, formatDateForDateInput } from './timeUtils';
+import { updateDateAndTime, formatTimeForTimeInput } from './timeUtils';
 
 describe('updateDateAndTime', () => {
   it('should update only date part when only date is provided', () => {

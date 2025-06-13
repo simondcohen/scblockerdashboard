@@ -12,6 +12,13 @@ export interface StandardBlock {
   required?: boolean;
 }
 
+export interface StorageData {
+  version: string;
+  lastModified: string;
+  blocks: Block[];
+  standardBlocks: StandardBlock[];
+}
+
 export interface RemainingTime {
   text: string;
   expired: boolean;

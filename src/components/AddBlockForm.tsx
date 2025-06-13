@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, X, Clock, ArrowRight, FileText } from 'lucide-react';
 import { useBlocker } from '../context/BlockerContext';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
-import { formatDateOnly, updateDateTimePart, formatDateForDateInput, formatTimeForTimeInput, updateDateAndTime } from '../utils/timeUtils';
+import { formatDateForDateInput, formatTimeForTimeInput, updateDateAndTime } from '../utils/timeUtils';
 import StandardBlocksList from './StandardBlocksList';
 import { StandardBlock } from '../types';
 
 const AddBlockForm: React.FC = () => {
-  const { addBlock, currentTime } = useBlocker();
+  const { addBlock } = useBlocker();
   const { addStandardBlock } = useStandardBlocks();
   const [showForm, setShowForm] = useState(false);
   const [blockName, setBlockName] = useState('');
@@ -239,8 +239,6 @@ const AddBlockForm: React.FC = () => {
 
     
     try {
-      // Get the actual current system time for validation
-      const now = new Date();
       
       if (endTime <= startTime) {
         setFormError('End time must be after start time');
@@ -263,7 +261,7 @@ const AddBlockForm: React.FC = () => {
       
       resetForm();
       setShowForm(false);
-    } catch (error) {
+    } catch {
       setFormError('Error processing dates. Please try again.');
     }
   };
@@ -301,14 +299,6 @@ const AddBlockForm: React.FC = () => {
   const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const timeString = e.target.value; // HH:MM
     safelyUpdateEndTime(timeString);
-  };
-  
-  // Dynamic min date for start date and end date inputs
-  const getMinStartDate = (): string => {
-    // Return a date far in the past to allow any start date
-    const pastDate = new Date();
-    pastDate.setFullYear(pastDate.getFullYear() - 10); // 10 years in the past
-    return formatDateForDateInput(pastDate);
   };
   
   // Dynamic min time for end time input when date is the same as start date
