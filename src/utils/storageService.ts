@@ -1,13 +1,9 @@
 import { Block, StandardBlock, StorageData } from '../types';
 
-// Keys for localStorage fallback
-const BLOCKS_KEY = 'tech-blocker-blocks';
-const STANDARD_KEY = 'tech-blocker-standard-blocks';
 const HANDLE_DB = 'blocker-dashboard-db';
 const HANDLE_STORE = 'file-handles';
 const HANDLE_KEY = 'dataFile';
 
-/** Simple wrapper around IndexedDB for storing file handles */
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(HANDLE_DB, 1);
@@ -78,23 +74,24 @@ export class StorageService {
   };
   private lastModified = 0;
   private polling?: number;
+  private saveTimeout?: number;
   private blockSubs = new Set<(blocks: Block[]) => void>();
   private standardSubs = new Set<(blocks: StandardBlock[]) => void>();
+  private savingSubs = new Set<(saving: boolean) => void>();
+  private fileSubs = new Set<(name: string | null) => void>();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private saving = false;
 
   async init(): Promise<void> {
-    // Return existing promise if already initializing or initialized
     if (this.initPromise) {
       return this.initPromise;
     }
 
-    // If already initialized, return immediately
     if (this.initialized || typeof window === 'undefined') {
       return Promise.resolve();
     }
 
-    // Create and store the initialization promise
     this.initPromise = this.performInit();
     return this.initPromise;
   }
@@ -102,119 +99,93 @@ export class StorageService {
   private async performInit(): Promise<void> {
     this.initialized = true;
 
-    if ('showOpenFilePicker' in window) {
+    if (!('showSaveFilePicker' in window)) {
+      alert('File System Access API is not supported in this browser.');
+      return;
+    }
+
+    this.handle = await getStoredHandle();
+
+    if (this.handle) {
       try {
-        // First, read existing localStorage data as backup
-        const existingLocalStorageData = this.readLocalStorageData();
-
-        this.handle = await getStoredHandle();
-        
-        // Try to access the stored handle if it exists
-        if (this.handle) {
-          try {
-            // Test if we still have permission to access the file
-            await this.handle.getFile();
-          } catch (error) {
-            // Permission lost or file no longer accessible
-            console.warn('Stored file handle is no longer accessible:', error);
-            await clearStoredHandle();
-            this.handle = null;
-          }
-        }
-
-        // If no handle or handle is invalid, prompt for file picker
-        if (!this.handle) {
-          this.handle = await (window as any).showSaveFilePicker({
-            suggestedName: 'blocker-dashboard-data.json',
-            types: [{ accept: { 'application/json': ['.json'] } }],
-          });
-          if (this.handle) {
-            await storeHandle(this.handle);
-          }
-        }
-
-        if (this.handle) {
-          await this.readFromFile();
-          
-          // If file is empty or new, merge with existing localStorage data
-          if (this.data.blocks.length === 0 && existingLocalStorageData.blocks.length > 0) {
-            this.data.blocks = existingLocalStorageData.blocks;
-          }
-          if (this.data.standardBlocks.length === 0 && existingLocalStorageData.standardBlocks.length > 0) {
-            this.data.standardBlocks = existingLocalStorageData.standardBlocks;
-          }
-
-          // Save merged data back to file if we had to merge
-          if ((this.data.blocks.length > 0 || this.data.standardBlocks.length > 0) && 
-              (existingLocalStorageData.blocks.length > 0 || existingLocalStorageData.standardBlocks.length > 0)) {
-            await this.writeToFile();
-          }
-
-          this.startPolling();
-          return;
-        }
-      } catch (error) {
-        console.warn('File System Access API failed, falling back to localStorage:', error);
+        await this.handle.getFile();
+        this.notifyFile();
+      } catch {
+        await clearStoredHandle();
         this.handle = null;
       }
     }
 
-    // Fallback to localStorage
-    this.readFromLocalStorage();
-    this.startPolling();
+    if (!this.handle) {
+      await this.promptForFile();
+    }
+
+    if (this.handle) {
+      await this.readFromFile();
+      this.startPolling();
+    }
   }
 
-  private readLocalStorageData(): { blocks: Block[]; standardBlocks: StandardBlock[] } {
-    const result = { blocks: [] as Block[], standardBlocks: [] as StandardBlock[] };
-    
-    try {
-      const blocksText = localStorage.getItem(BLOCKS_KEY);
-      const stdText = localStorage.getItem(STANDARD_KEY);
-      if (blocksText) result.blocks = JSON.parse(blocksText, reviver);
-      if (stdText) result.standardBlocks = JSON.parse(stdText);
-    } catch (error) {
-      console.warn('Error reading localStorage data:', error);
+  private async promptForFile() {
+    while (!this.handle) {
+      try {
+        this.handle = await (window as any).showSaveFilePicker({
+          suggestedName: 'blocker-data.json',
+          types: [{ accept: { 'application/json': ['.json'] } }],
+        });
+        if (this.handle) {
+          await storeHandle(this.handle);
+          this.notifyFile();
+        }
+      } catch {
+        alert('A file must be selected to use the dashboard.');
+      }
     }
-    
-    return result;
+  }
+
+  async changeFile() {
+    await this.promptForFile();
+    await this.writeToFile();
+  }
+
+  private notifyFile() {
+    const name = this.getFileName();
+    for (const cb of this.fileSubs) cb(name);
+  }
+
+  private setSaving(s: boolean) {
+    this.saving = s;
+    for (const cb of this.savingSubs) cb(s);
   }
 
   private async readFromFile() {
     if (!this.handle) return;
-    
     try {
       const file = await this.handle.getFile();
       this.lastModified = file.lastModified;
       const text = await file.text();
-      
       if (text.trim()) {
         try {
-          const parsed = JSON.parse(text, reviver) as StorageData;
-          this.data = parsed;
-        } catch (error) {
-          console.warn('Error parsing file content, keeping current data:', error);
+          this.data = JSON.parse(text, reviver) as StorageData;
+        } catch {
+          console.warn('Failed to parse storage file, starting fresh');
         }
       }
-      // If file is empty, keep current data structure
     } catch (error) {
       console.error('Error reading from file:', error);
-      // Clear the handle if we can't read from it
       await clearStoredHandle();
       this.handle = null;
-      throw error;
+      alert('Lost access to the storage file. Please select a new location.');
+      await this.promptForFile();
+      await this.writeToFile();
     }
-  }
-
-  private readFromLocalStorage() {
-    const localData = this.readLocalStorageData();
-    this.data.blocks = localData.blocks;
-    this.data.standardBlocks = localData.standardBlocks;
   }
 
   private async writeToFile() {
     if (!this.handle) return;
-    
+
     try {
+      this.setSaving(true);
       const writable = await this.handle.createWritable();
       this.data.lastModified = new Date().toISOString();
       await writable.write(JSON.stringify(this.data, null, 2));
@@ -223,47 +194,30 @@ export class StorageService {
       this.lastModified = file.lastModified;
     } catch (error) {
       console.error('Error writing to file:', error);
-      // If write fails, clear the handle and fall back to localStorage
       await clearStoredHandle();
       this.handle = null;
-      this.writeToLocalStorage();
-    }
-  }
-
-  private writeToLocalStorage() {
-    try {
-      localStorage.setItem(BLOCKS_KEY, JSON.stringify(this.data.blocks));
-      localStorage.setItem(STANDARD_KEY, JSON.stringify(this.data.standardBlocks));
-    } catch (error) {
-      console.error('Error writing to localStorage:', error);
+      alert('Could not write to the file. Please select a new location.');
+      await this.promptForFile();
+    } finally {
+      this.setSaving(false);
     }
   }
 
   private startPolling() {
     this.polling = window.setInterval(async () => {
-      if (this.handle) {
-        try {
-          const file = await this.handle.getFile();
-          if (file.lastModified !== this.lastModified) {
-            await this.readFromFile();
-            this.notify();
-          }
-        } catch (error) {
-          console.warn('Error during polling, file may no longer be accessible:', error);
-          // Clear handle and switch to localStorage polling
-          await clearStoredHandle();
-          this.handle = null;
-        }
-      } else {
-        const prevBlocks = JSON.stringify(this.data.blocks);
-        const prevStd = JSON.stringify(this.data.standardBlocks);
-        this.readFromLocalStorage();
-        if (
-          prevBlocks !== JSON.stringify(this.data.blocks) ||
-          prevStd !== JSON.stringify(this.data.standardBlocks)
-        ) {
+      if (!this.handle) return;
+      try {
+        const file = await this.handle.getFile();
+        if (file.lastModified !== this.lastModified) {
+          await this.readFromFile();
           this.notify();
         }
+      } catch {
+        await clearStoredHandle();
+        this.handle = null;
+        alert('Lost access to the storage file. Please select a new location.');
+        await this.promptForFile();
+        await this.writeToFile();
       }
     }, 1500);
   }
@@ -285,6 +239,22 @@ export class StorageService {
   unsubscribeStandard(cb: (blocks: StandardBlock[]) => void) {
     this.standardSubs.delete(cb);
   }
+  subscribeSaving(cb: (saving: boolean) => void) {
+    this.savingSubs.add(cb);
+  }
+  unsubscribeSaving(cb: (saving: boolean) => void) {
+    this.savingSubs.delete(cb);
+  }
+  subscribeFile(cb: (name: string | null) => void) {
+    this.fileSubs.add(cb);
+  }
+  unsubscribeFile(cb: (name: string | null) => void) {
+    this.fileSubs.delete(cb);
+  }
+
+  getFileName(): string | null {
+    return this.handle ? this.handle.name : null;
+  }
 
   getBlocks() {
     return this.data.blocks;
@@ -294,33 +264,26 @@ export class StorageService {
   }
 
   async setBlocks(blocks: Block[]) {
-    // Wait for initialization to complete before setting data
     await this.init();
     this.data.blocks = blocks;
     await this.persist();
   }
 
   async setStandardBlocks(blocks: StandardBlock[]) {
-    // Wait for initialization to complete before setting data
     await this.init();
     this.data.standardBlocks = blocks;
     await this.persist();
   }
 
   private async persist() {
-    if (this.handle) {
-      await this.writeToFile();
-    } else {
-      this.writeToLocalStorage();
-    }
+    if (this.saveTimeout) window.clearTimeout(this.saveTimeout);
+    this.saveTimeout = window.setTimeout(() => this.writeToFile(), 300);
   }
 
-  // Method to check if initialization is complete
   isInitialized(): boolean {
     return this.initialized;
   }
 
-  // Method to get initialization promise for contexts to wait on
   getInitPromise(): Promise<void> {
     return this.init();
   }
