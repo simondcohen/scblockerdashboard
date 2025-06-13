@@ -117,7 +117,12 @@ export class StorageService {
     }
 
     if (!this.handle) {
-      await this.promptForFile();
+      try {
+        await this.promptForFile();
+      } catch (error) {
+        console.warn('File selection cancelled:', error);
+        // App will continue without file persistence
+      }
     }
 
     if (this.handle) {
@@ -127,7 +132,10 @@ export class StorageService {
   }
 
   private async promptForFile() {
-    while (!this.handle) {
+    let attempts = 0;
+    const maxAttempts = 2;
+    
+    while (!this.handle && attempts < maxAttempts) {
       try {
         this.handle = await (window as any).showSaveFilePicker({
           suggestedName: 'blocker-data.json',
@@ -138,14 +146,26 @@ export class StorageService {
           this.notifyFile();
         }
       } catch {
-        alert('A file must be selected to use the dashboard.');
+        attempts++;
+        if (attempts < maxAttempts) {
+          alert('A file must be selected to use the dashboard. This is your last chance to select a file.');
+        }
       }
+    }
+    
+    if (!this.handle) {
+      throw new Error('User cancelled file selection. Dashboard will run without data persistence.');
     }
   }
 
   async changeFile() {
-    await this.promptForFile();
-    await this.writeToFile();
+    try {
+      await this.promptForFile();
+      await this.writeToFile();
+    } catch (error) {
+      console.warn('File selection cancelled:', error);
+      // Keep using existing file or no file
+    }
   }
 
   private notifyFile() {
@@ -176,8 +196,13 @@ export class StorageService {
       await clearStoredHandle();
       this.handle = null;
       alert('Lost access to the storage file. Please select a new location.');
-      await this.promptForFile();
-      await this.writeToFile();
+      try {
+        await this.promptForFile();
+        await this.writeToFile();
+      } catch (promptError) {
+        console.warn('File selection cancelled after losing access:', promptError);
+        // Continue without file persistence
+      }
     }
   }
 
@@ -197,7 +222,12 @@ export class StorageService {
       await clearStoredHandle();
       this.handle = null;
       alert('Could not write to the file. Please select a new location.');
-      await this.promptForFile();
+      try {
+        await this.promptForFile();
+      } catch (promptError) {
+        console.warn('File selection cancelled after write error:', promptError);
+        // Continue without file persistence
+      }
     } finally {
       this.setSaving(false);
     }
@@ -216,8 +246,13 @@ export class StorageService {
         await clearStoredHandle();
         this.handle = null;
         alert('Lost access to the storage file. Please select a new location.');
-        await this.promptForFile();
-        await this.writeToFile();
+        try {
+          await this.promptForFile();
+          await this.writeToFile();
+        } catch (promptError) {
+          console.warn('File selection cancelled during polling:', promptError);
+          // Continue without file persistence
+        }
       }
     }, 1500);
   }
