@@ -66,6 +66,8 @@ const reviver = (key: string, value: unknown) => {
 
 export class StorageService {
   private handle: FileSystemFileHandle | null = null;
+  private bc: BroadcastChannel;
+  private useLocalStorage = false;
   private data: StorageData = {
     version: '1.0',
     lastModified: new Date().toISOString(),
@@ -82,6 +84,15 @@ export class StorageService {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private saving = false;
+
+  constructor() {
+    this.bc = new BroadcastChannel('storage-service');
+    this.bc.onmessage = (ev) => {
+      if (ev.data === 'fileChanged') {
+        this.handleExternalFileChange();
+      }
+    };
+  }
 
   async init(): Promise<void> {
     if (this.initPromise) {
@@ -100,7 +111,11 @@ export class StorageService {
     this.initialized = true;
 
     if (!('showSaveFilePicker' in window)) {
-      alert('File System Access API is not supported in this browser.');
+      alert('File System Access API is not supported in this browser. Falling back to localStorage.');
+      this.useLocalStorage = true;
+      this.readFromLocalStorage();
+      window.addEventListener('storage', this.handleStorageChange);
+      window.addEventListener('beforeunload', this.flush);
       return;
     }
 
@@ -128,6 +143,7 @@ export class StorageService {
     if (this.handle) {
       await this.readFromFile();
       this.startPolling();
+      window.addEventListener('beforeunload', this.flush);
     }
   }
 
@@ -137,13 +153,14 @@ export class StorageService {
     
     while (!this.handle && attempts < maxAttempts) {
       try {
-        this.handle = await (window as any).showSaveFilePicker({
+        this.handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
           suggestedName: 'blocker-data.json',
           types: [{ accept: { 'application/json': ['.json'] } }],
         });
         if (this.handle) {
           await storeHandle(this.handle);
           this.notifyFile();
+          this.bc.postMessage('fileChanged');
         }
       } catch {
         attempts++;
@@ -162,6 +179,7 @@ export class StorageService {
     try {
       await this.promptForFile();
       await this.writeToFile();
+      this.bc.postMessage('fileChanged');
     } catch (error) {
       console.warn('File selection cancelled:', error);
       // Keep using existing file or no file
@@ -199,6 +217,7 @@ export class StorageService {
       try {
         await this.promptForFile();
         await this.writeToFile();
+        this.bc.postMessage('fileChanged');
       } catch (promptError) {
         console.warn('File selection cancelled after losing access:', promptError);
         // Continue without file persistence
@@ -211,6 +230,19 @@ export class StorageService {
 
     try {
       this.setSaving(true);
+      const file = await this.handle.getFile();
+      if (file.lastModified !== this.lastModified) {
+        const text = await file.text();
+        if (text.trim()) {
+          try {
+            const onDisk = JSON.parse(text, reviver) as StorageData;
+            this.data.blocks = this.mergeBlocks(onDisk.blocks, this.data.blocks);
+            this.data.standardBlocks = this.mergeStandardBlocks(onDisk.standardBlocks, this.data.standardBlocks);
+          } catch {
+            // ignore merge errors
+          }
+        }
+      }
       const writable = await this.handle.createWritable();
       this.data.lastModified = new Date().toISOString();
       await writable.write(JSON.stringify(this.data, null, 2));
@@ -236,6 +268,7 @@ export class StorageService {
   private startPolling() {
     this.polling = window.setInterval(async () => {
       if (!this.handle) return;
+      if (document.visibilityState !== 'visible') return;
       try {
         const file = await this.handle.getFile();
         if (file.lastModified !== this.lastModified) {
@@ -249,17 +282,32 @@ export class StorageService {
         try {
           await this.promptForFile();
           await this.writeToFile();
+          this.bc.postMessage('fileChanged');
         } catch (promptError) {
           console.warn('File selection cancelled during polling:', promptError);
           // Continue without file persistence
         }
       }
-    }, 1500);
+    }, 2000);
   }
 
   private notify() {
     for (const cb of this.blockSubs) cb(this.data.blocks);
     for (const cb of this.standardSubs) cb(this.data.standardBlocks);
+  }
+
+  private mergeBlocks(external: Block[], local: Block[]): Block[] {
+    const map = new Map<number, Block>();
+    for (const b of external) map.set(b.id, b);
+    for (const b of local) map.set(b.id, b);
+    return Array.from(map.values());
+  }
+
+  private mergeStandardBlocks(external: StandardBlock[], local: StandardBlock[]): StandardBlock[] {
+    const map = new Map<number, StandardBlock>();
+    for (const b of external) map.set(b.id, b);
+    for (const b of local) map.set(b.id, b);
+    return Array.from(map.values());
   }
 
   subscribeBlocks(cb: (blocks: Block[]) => void) {
@@ -301,19 +349,75 @@ export class StorageService {
   async setBlocks(blocks: Block[]) {
     await this.init();
     this.data.blocks = blocks;
+    this.notify();
     await this.persist();
   }
 
   async setStandardBlocks(blocks: StandardBlock[]) {
     await this.init();
     this.data.standardBlocks = blocks;
+    this.notify();
     await this.persist();
   }
 
   private async persist() {
     if (this.saveTimeout) window.clearTimeout(this.saveTimeout);
-    this.saveTimeout = window.setTimeout(() => this.writeToFile(), 300);
+    if (this.useLocalStorage) {
+      this.saveTimeout = window.setTimeout(() => this.writeToLocalStorage(), 300);
+    } else {
+      this.saveTimeout = window.setTimeout(() => this.writeToFile(), 300);
+    }
   }
+
+  private async handleExternalFileChange() {
+    if (this.polling) window.clearInterval(this.polling);
+    this.handle = await getStoredHandle();
+    if (this.handle) {
+      await this.readFromFile();
+      this.startPolling();
+    }
+    this.notifyFile();
+    this.notify();
+  }
+
+  private readFromLocalStorage() {
+    const text = localStorage.getItem('blocker-data');
+    if (text) {
+      try {
+        this.data = JSON.parse(text, reviver) as StorageData;
+        this.notify();
+      } catch {
+        console.warn('Failed to parse localStorage data, starting fresh');
+      }
+    }
+  }
+
+  private writeToLocalStorage() {
+    this.data.lastModified = new Date().toISOString();
+    localStorage.setItem('blocker-data', JSON.stringify(this.data));
+  }
+
+  private handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'blocker-data' && e.newValue) {
+      try {
+        this.data = JSON.parse(e.newValue, reviver) as StorageData;
+        this.notify();
+      } catch {
+        console.warn('Failed to parse localStorage update');
+      }
+    }
+  };
+
+  private flush = () => {
+    if (this.saveTimeout) {
+      window.clearTimeout(this.saveTimeout);
+      if (this.useLocalStorage) {
+        this.writeToLocalStorage();
+      } else {
+        this.writeToFile();
+      }
+    }
+  };
 
   isInitialized(): boolean {
     return this.initialized;

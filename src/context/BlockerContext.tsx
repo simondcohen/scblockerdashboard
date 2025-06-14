@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { Block } from '../types';
 import { storageService } from '../utils/storageService';
 
@@ -24,6 +24,7 @@ export const useBlocker = () => {
 
 export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const fromFile = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   
@@ -54,10 +55,14 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         setIsLoading(true);
         await storageService.init();
+        fromFile.current = true;
         setBlocks(storageService.getBlocks());
         setIsInitialized(true);
-        
-        const cb = (b: Block[]) => setBlocks(b);
+
+        const cb = (b: Block[]) => {
+          fromFile.current = true;
+          setBlocks(b);
+        };
         storageService.subscribeBlocks(cb);
         cleanup = () => storageService.unsubscribeBlocks(cb);
       } catch (error) {
@@ -80,7 +85,11 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Only update storage after initialization is complete and we're not loading
   useEffect(() => {
     if (isInitialized && !isLoading) {
-      storageService.setBlocks(blocks);
+      if (fromFile.current) {
+        fromFile.current = false;
+      } else {
+        storageService.setBlocks(blocks);
+      }
     }
   }, [blocks, isInitialized, isLoading]);
   

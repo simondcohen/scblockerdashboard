@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { StandardBlock } from '../types';
 import { storageService } from '../utils/storageService';
 
@@ -25,6 +25,7 @@ export const useStandardBlocks = () => {
 
 export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>([]);
+  const fromFile = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   
@@ -35,10 +36,14 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
       try {
         setIsLoading(true);
         await storageService.init();
+        fromFile.current = true;
         setStandardBlocks(storageService.getStandardBlocks());
         setIsInitialized(true);
-        
-        const cb = (b: StandardBlock[]) => setStandardBlocks(b);
+
+        const cb = (b: StandardBlock[]) => {
+          fromFile.current = true;
+          setStandardBlocks(b);
+        };
         storageService.subscribeStandard(cb);
         cleanup = () => storageService.unsubscribeStandard(cb);
       } catch (error) {
@@ -61,7 +66,11 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
   // Only update storage after initialization is complete and we're not loading
   useEffect(() => {
     if (isInitialized && !isLoading) {
-      storageService.setStandardBlocks(standardBlocks);
+      if (fromFile.current) {
+        fromFile.current = false;
+      } else {
+        storageService.setStandardBlocks(standardBlocks);
+      }
     }
   }, [standardBlocks, isInitialized, isLoading]);
   
