@@ -247,8 +247,8 @@ export class StorageService {
       this.data.lastModified = new Date().toISOString();
       await writable.write(JSON.stringify(this.data, null, 2));
       await writable.close();
-      const file = await this.handle.getFile();
-      this.lastModified = file.lastModified;
+      const updatedFile = await this.handle.getFile();
+      this.lastModified = updatedFile.lastModified;
     } catch (error) {
       console.error('Error writing to file:', error);
       await clearStoredHandle();
