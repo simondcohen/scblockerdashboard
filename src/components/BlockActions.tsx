@@ -80,7 +80,8 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
       name: formData.name.trim(),
       startTime: start,
       endTime: end,
-      notes: formData.notes.trim()
+      notes: formData.notes.trim(),
+      lastModified: new Date().toISOString()
     });
 
     setIsEditing(false);

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Clock, History, Star } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { useBlocker } from '../context/BlockerContext';
-import { storageService } from '../utils/storageService';
+import { useStorage } from '../context/StorageProvider';
+import ExportImportButtons from './ExportImportButtons';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,26 +19,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   const { getRequiredBlocks, isLoading: standardBlocksLoading } = useStandardBlocks();
   const { blocks, currentTime, isLoading: blocksLoading } = useBlocker();
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    storageService.getInitPromise().then(() => {
-      setFileName(storageService.getFileName());
-    });
-    const fileCb = (n: string | null) => setFileName(n);
-    const saveCb = (s: boolean) => setSaving(s);
-    storageService.subscribeFile(fileCb);
-    storageService.subscribeSaving(saveCb);
-    return () => {
-      storageService.unsubscribeFile(fileCb);
-      storageService.unsubscribeSaving(saveCb);
-    };
-  }, []);
+  const { fileName, saving, changeFile, mode } = useStorage();
 
   const changeLocation = async () => {
-    await storageService.changeFile();
-    setFileName(storageService.getFileName());
+    await changeFile();
   };
   
   // Get active block names for required blocks check
@@ -116,9 +101,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <span className="mr-1">📁</span>{fileName || 'none'}
                   {saving && <span className="ml-2 text-xs text-gray-500">Saving...</span>}
                 </span>
+                <span className="text-xs text-gray-500">({mode})</span>
                 <button onClick={changeLocation} className="underline text-blue-600 text-xs">
                   Change Location
                 </button>
+                <ExportImportButtons />
               </div>
             </div>
           </div>
