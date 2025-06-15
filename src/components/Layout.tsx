@@ -96,21 +96,83 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </nav>
               
               <div id="storage-info" className="flex items-center space-x-2 text-sm text-gray-600 pl-4 border-l border-gray-200">
-                <span>Storage:</span>
-                <span className="font-medium flex items-center">
-                  <span className="mr-1">📁</span>{fileName || 'none'}
-                  {saving && <span className="ml-2 text-xs text-gray-500">Saving...</span>}
-                </span>
-                <span className="text-xs text-gray-500">({mode})</span>
-                <button onClick={changeLocation} className="underline text-blue-600 text-xs">
-                  Change Location
-                </button>
+                {mode === 'memory' && (
+                  <>
+                    <span className="text-amber-600">⚠️ No Storage</span>
+                    <button
+                      onClick={changeLocation}
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    >
+                      Enable Storage
+                    </button>
+                  </>
+                )}
+
+                {mode === 'needs-permission' && (
+                  <>
+                    <span>Storage:</span>
+                    <span className="font-medium flex items-center text-amber-600">
+                      <span className="mr-1">📁</span>{fileName}
+                      <span className="ml-1 text-xs">(permission needed)</span>
+                    </span>
+                    <button
+                      onClick={changeLocation}
+                      className="px-2 py-1 bg-amber-600 text-white rounded text-xs hover:bg-amber-700"
+                    >
+                      Restore Access
+                    </button>
+                  </>
+                )}
+
+                {(mode === 'file' || mode === 'localStorage') && (
+                  <>
+                    <span>Storage:</span>
+                    <span className="font-medium flex items-center">
+                      <span className="mr-1">📁</span>{fileName || 'Browser Storage'}
+                      {saving && <span className="ml-2 text-xs text-gray-500">Saving...</span>}
+                    </span>
+                    <span className="text-xs text-gray-500">({mode})</span>
+                    <button onClick={changeLocation} className="underline text-blue-600 text-xs">
+                      Change
+                    </button>
+                  </>
+                )}
+
                 <ExportImportButtons />
               </div>
             </div>
           </div>
         </div>
       </header>
+      {(mode === 'memory' || mode === 'needs-permission') && (
+        <div
+          className={`${
+            mode === 'memory' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+          } border rounded-md p-3 mb-4 flex items-center justify-between`}
+        >
+          <div className="flex items-center">
+            <span className="text-lg mr-2">{mode === 'memory' ? '⚠️' : '🔒'}</span>
+            <div>
+              <p className={`font-medium ${mode === 'memory' ? 'text-red-800' : 'text-amber-800'}`}>
+                {mode === 'memory' ? 'Your data is not being saved' : 'Storage permission needed'}
+              </p>
+              <p className={`text-sm ${mode === 'memory' ? 'text-red-600' : 'text-amber-600'}`}>
+                {mode === 'memory'
+                  ? 'Enable storage to persist your blocks across sessions.'
+                  : 'Click below to restore access to your saved data.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={changeLocation}
+            className={`px-4 py-2 rounded font-medium text-white ${
+              mode === 'memory' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+            }`}
+          >
+            {mode === 'memory' ? 'Enable Storage' : 'Restore Access'}
+          </button>
+        </div>
+      )}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         {children}
       </main>

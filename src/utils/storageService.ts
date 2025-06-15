@@ -68,7 +68,7 @@ export class StorageService {
   private handle: FileSystemFileHandle | null = null;
   private bc: BroadcastChannel;
   private useLocalStorage = false;
-  private mode: 'file' | 'localStorage' | 'memory' = 'memory';
+  private mode: 'file' | 'localStorage' | 'memory' | 'needs-permission' = 'memory';
   private data: StorageData = {
     version: '1.0',
     lastModified: new Date().toISOString(),
@@ -129,70 +129,54 @@ export class StorageService {
     this.handle = await getStoredHandle();
 
     if (this.handle) {
-      try {
-        await this.handle.getFile();
-        this.notifyFile();
-      } catch {
-        await clearStoredHandle();
-        this.handle = null;
+      this.notifyFile();
+      const success = await this.tryReadFromFile();
+      if (success) {
+        this.mode = 'file';
+        window.addEventListener('beforeunload', this.flush);
+      } else if (this.handle) {
+        this.mode = 'needs-permission';
       }
+    } else {
+      this.mode = 'memory';
     }
 
-    if (!this.handle) {
-      try {
-        await this.promptForFile();
-      } catch (error) {
-        console.warn('File selection cancelled:', error);
-        // App will continue without file persistence
-      }
-    }
-
-    if (this.handle) {
-      await this.readFromFile();
-      this.mode = 'file';
-      window.addEventListener('beforeunload', this.flush);
-    }
     this.notifyMode();
   }
 
-  private async promptForFile() {
-    let attempts = 0;
-    const maxAttempts = 2;
-    
-    while (!this.handle && attempts < maxAttempts) {
-      try {
-        this.handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
-          suggestedName: 'blocker-data.json',
-          types: [{ accept: { 'application/json': ['.json'] } }],
-        });
-        if (this.handle) {
-          await storeHandle(this.handle);
-          this.notifyFile();
-          this.mode = 'file';
-          this.bc.postMessage('fileChanged');
-          this.notifyMode();
-        }
-      } catch {
-        attempts++;
-        if (attempts < maxAttempts) {
-          console.warn('A file must be selected to use the dashboard.');
-        }
+  private async promptForFile(): Promise<boolean> {
+    try {
+      this.handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        suggestedName: 'blocker-data.json',
+        types: [{ accept: { 'application/json': ['.json'] } }],
+      });
+
+      if (this.handle) {
+        await storeHandle(this.handle);
+        this.notifyFile();
+        this.mode = 'file';
+        this.bc.postMessage('fileChanged');
+        this.notifyMode();
+        return true;
       }
-    }
-    
-    if (!this.handle) {
-      throw new Error('User cancelled file selection. Dashboard will run without data persistence.');
+      return false;
+    } catch {
+      return false;
     }
   }
 
   async changeFile() {
-    try {
-      await this.promptForFile();
+    if (this.mode === 'needs-permission' && this.handle) {
+      const restored = await this.restoreFileAccess();
+      if (restored) return;
+    }
+
+    const picked = await this.promptForFile();
+    if (picked) {
       await this.writeToFile();
       this.bc.postMessage('fileChanged');
-    } catch (error) {
-      console.warn('File selection cancelled:', error);
-      // Keep using existing file or no file
+    } else {
+      console.warn('File selection cancelled');
     }
   }
 
@@ -210,8 +194,8 @@ export class StorageService {
     for (const cb of this.savingSubs) cb(s);
   }
 
-  private async readFromFile() {
-    if (!this.handle) return;
+  private async tryReadFromFile(): Promise<boolean> {
+    if (!this.handle) return false;
     try {
       const file = await this.handle.getFile();
       this.lastModified = file.lastModified;
@@ -223,23 +207,42 @@ export class StorageService {
           console.warn('Failed to parse storage file, starting fresh');
         }
       }
-      this.mode = 'file';
-      this.notifyMode();
+      this.notify();
+      return true;
     } catch (error) {
-      console.error('Error reading from file:', error);
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        console.info('File permission needed - handle preserved');
+        return false;
+      }
+      console.error('File access error:', error);
       await clearStoredHandle();
       this.handle = null;
-      this.mode = 'memory';
-      this.notifyMode();
-      try {
-        await this.promptForFile();
-        await this.writeToFile();
-        this.bc.postMessage('fileChanged');
-      } catch (promptError) {
-        console.warn('File selection cancelled after losing access:', promptError);
-        // Continue without file persistence
-      }
+      return false;
     }
+  }
+
+  async restoreFileAccess(): Promise<boolean> {
+    if (!this.handle) return false;
+    const success = await this.tryReadFromFile();
+    if (success) {
+      this.mode = 'file';
+      this.notifyMode();
+      window.addEventListener('beforeunload', this.flush);
+      return true;
+    }
+    return false;
+  }
+
+  private async readFromFile() {
+    const success = await this.tryReadFromFile();
+    if (success) {
+      this.mode = 'file';
+    } else if (this.handle) {
+      this.mode = 'needs-permission';
+    } else {
+      this.mode = 'memory';
+    }
+    this.notifyMode();
   }
 
   private async writeToFile() {
@@ -269,16 +272,14 @@ export class StorageService {
       this.bc.postMessage({ type: 'dataUpdated', timestamp: this.data.lastModified });
     } catch (error) {
       console.error('Error writing to file:', error);
-      await clearStoredHandle();
-      this.handle = null;
-      this.mode = 'memory';
-      this.notifyMode();
-      try {
-        await this.promptForFile();
-      } catch (promptError) {
-        console.warn('File selection cancelled after write error:', promptError);
-        // Continue without file persistence
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        this.mode = this.handle ? 'needs-permission' : 'memory';
+      } else {
+        await clearStoredHandle();
+        this.handle = null;
+        this.mode = 'memory';
       }
+      this.notifyMode();
     } finally {
       this.setSaving(false);
     }
@@ -380,7 +381,7 @@ export class StorageService {
     if (this.saveTimeout) window.clearTimeout(this.saveTimeout);
     if (this.useLocalStorage) {
       this.saveTimeout = window.setTimeout(() => this.writeToLocalStorage(), 300);
-    } else {
+    } else if (this.mode !== 'needs-permission') {
       this.saveTimeout = window.setTimeout(() => this.writeToFile(), 300);
     }
   }
@@ -388,11 +389,10 @@ export class StorageService {
   private async handleExternalFileChange() {
     this.handle = await getStoredHandle();
     if (this.handle) {
-      await this.readFromFile();
-      this.mode = 'file';
+      const success = await this.tryReadFromFile();
+      this.mode = success ? 'file' : 'needs-permission';
     }
     this.notifyFile();
-    this.notify();
     this.notifyMode();
   }
 
@@ -430,7 +430,7 @@ export class StorageService {
       window.clearTimeout(this.saveTimeout);
       if (this.useLocalStorage) {
         this.writeToLocalStorage();
-      } else {
+      } else if (this.mode !== 'needs-permission') {
         this.writeToFile();
       }
     }
