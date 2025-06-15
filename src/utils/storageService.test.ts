@@ -9,7 +9,7 @@ describe('mergeBlocks', () => {
     const older = new Date(Date.now() - 1000).toISOString();
     const external: Block[] = [{ id: 1, name: 'a', startTime: new Date(), endTime: new Date(), lastModified: older }];
     const local: Block[] = [{ id: 1, name: 'b', startTime: new Date(), endTime: new Date(), lastModified: now }];
-    // @ts-ignore access private
+    // @ts-expect-error access private
     const merged = s['mergeBlocks'](external, local);
     expect(merged[0].name).toBe('b');
   });
