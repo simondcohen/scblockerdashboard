@@ -249,7 +249,8 @@ const AddBlockForm: React.FC = () => {
         name: blockName.trim(),
         startTime: startTime,
         endTime: endTime,
-        notes: notes.trim()
+        notes: notes.trim(),
+        lastModified: new Date().toISOString()
       });
       
       // Save as standard block if checkbox is checked

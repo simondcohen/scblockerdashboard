@@ -4,6 +4,7 @@ export interface Block {
   startTime: Date;
   endTime: Date;
   notes?: string;
+  lastModified?: string;
 }
 
 export interface StandardBlock {

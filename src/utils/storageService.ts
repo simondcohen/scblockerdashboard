@@ -68,6 +68,7 @@ export class StorageService {
   private handle: FileSystemFileHandle | null = null;
   private bc: BroadcastChannel;
   private useLocalStorage = false;
+  private mode: 'file' | 'localStorage' | 'memory' = 'memory';
   private data: StorageData = {
     version: '1.0',
     lastModified: new Date().toISOString(),
@@ -75,12 +76,12 @@ export class StorageService {
     standardBlocks: [],
   };
   private lastModified = 0;
-  private polling?: number;
   private saveTimeout?: number;
   private blockSubs = new Set<(blocks: Block[]) => void>();
   private standardSubs = new Set<(blocks: StandardBlock[]) => void>();
   private savingSubs = new Set<(saving: boolean) => void>();
   private fileSubs = new Set<(name: string | null) => void>();
+  private modeSubs = new Set<() => void>();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private saving = false;
@@ -90,6 +91,11 @@ export class StorageService {
     this.bc.onmessage = (ev) => {
       if (ev.data === 'fileChanged') {
         this.handleExternalFileChange();
+      }
+      if (ev.data?.type === 'dataUpdated') {
+        if (ev.data.timestamp && ev.data.timestamp !== this.data.lastModified) {
+          this.handleExternalFileChange();
+        }
       }
     };
   }
@@ -111,11 +117,12 @@ export class StorageService {
     this.initialized = true;
 
     if (!('showSaveFilePicker' in window)) {
-      alert('File System Access API is not supported in this browser. Falling back to localStorage.');
       this.useLocalStorage = true;
+      this.mode = 'localStorage';
       this.readFromLocalStorage();
       window.addEventListener('storage', this.handleStorageChange);
       window.addEventListener('beforeunload', this.flush);
+      this.notifyMode();
       return;
     }
 
@@ -142,9 +149,10 @@ export class StorageService {
 
     if (this.handle) {
       await this.readFromFile();
-      this.startPolling();
+      this.mode = 'file';
       window.addEventListener('beforeunload', this.flush);
     }
+    this.notifyMode();
   }
 
   private async promptForFile() {
@@ -160,12 +168,14 @@ export class StorageService {
         if (this.handle) {
           await storeHandle(this.handle);
           this.notifyFile();
+          this.mode = 'file';
           this.bc.postMessage('fileChanged');
+          this.notifyMode();
         }
       } catch {
         attempts++;
         if (attempts < maxAttempts) {
-          alert('A file must be selected to use the dashboard. This is your last chance to select a file.');
+          console.warn('A file must be selected to use the dashboard.');
         }
       }
     }
@@ -191,6 +201,10 @@ export class StorageService {
     for (const cb of this.fileSubs) cb(name);
   }
 
+  private notifyMode() {
+    for (const cb of this.modeSubs) cb();
+  }
+
   private setSaving(s: boolean) {
     this.saving = s;
     for (const cb of this.savingSubs) cb(s);
@@ -209,11 +223,14 @@ export class StorageService {
           console.warn('Failed to parse storage file, starting fresh');
         }
       }
+      this.mode = 'file';
+      this.notifyMode();
     } catch (error) {
       console.error('Error reading from file:', error);
       await clearStoredHandle();
       this.handle = null;
-      alert('Lost access to the storage file. Please select a new location.');
+      this.mode = 'memory';
+      this.notifyMode();
       try {
         await this.promptForFile();
         await this.writeToFile();
@@ -249,11 +266,13 @@ export class StorageService {
       await writable.close();
       const updatedFile = await this.handle.getFile();
       this.lastModified = updatedFile.lastModified;
+      this.bc.postMessage({ type: 'dataUpdated', timestamp: this.data.lastModified });
     } catch (error) {
       console.error('Error writing to file:', error);
       await clearStoredHandle();
       this.handle = null;
-      alert('Could not write to the file. Please select a new location.');
+      this.mode = 'memory';
+      this.notifyMode();
       try {
         await this.promptForFile();
       } catch (promptError) {
@@ -265,31 +284,7 @@ export class StorageService {
     }
   }
 
-  private startPolling() {
-    this.polling = window.setInterval(async () => {
-      if (!this.handle) return;
-      if (document.visibilityState !== 'visible') return;
-      try {
-        const file = await this.handle.getFile();
-        if (file.lastModified !== this.lastModified) {
-          await this.readFromFile();
-          this.notify();
-        }
-      } catch {
-        await clearStoredHandle();
-        this.handle = null;
-        alert('Lost access to the storage file. Please select a new location.');
-        try {
-          await this.promptForFile();
-          await this.writeToFile();
-          this.bc.postMessage('fileChanged');
-        } catch (promptError) {
-          console.warn('File selection cancelled during polling:', promptError);
-          // Continue without file persistence
-        }
-      }
-    }, 2000);
-  }
+
 
   private notify() {
     for (const cb of this.blockSubs) cb(this.data.blocks);
@@ -299,7 +294,18 @@ export class StorageService {
   private mergeBlocks(external: Block[], local: Block[]): Block[] {
     const map = new Map<number, Block>();
     for (const b of external) map.set(b.id, b);
-    for (const b of local) map.set(b.id, b);
+    for (const b of local) {
+      const existing = map.get(b.id);
+      if (!existing) {
+        map.set(b.id, b);
+      } else {
+        const eTime = existing.lastModified ? new Date(existing.lastModified).getTime() : 0;
+        const lTime = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+        if (lTime >= eTime) {
+          map.set(b.id, b);
+        }
+      }
+    }
     return Array.from(map.values());
   }
 
@@ -334,9 +340,19 @@ export class StorageService {
   unsubscribeFile(cb: (name: string | null) => void) {
     this.fileSubs.delete(cb);
   }
+  subscribeMode(cb: () => void) {
+    this.modeSubs.add(cb);
+  }
+  unsubscribeMode(cb: () => void) {
+    this.modeSubs.delete(cb);
+  }
 
   getFileName(): string | null {
     return this.handle ? this.handle.name : null;
+  }
+
+  getMode() {
+    return this.mode;
   }
 
   getBlocks() {
@@ -370,14 +386,14 @@ export class StorageService {
   }
 
   private async handleExternalFileChange() {
-    if (this.polling) window.clearInterval(this.polling);
     this.handle = await getStoredHandle();
     if (this.handle) {
       await this.readFromFile();
-      this.startPolling();
+      this.mode = 'file';
     }
     this.notifyFile();
     this.notify();
+    this.notifyMode();
   }
 
   private readFromLocalStorage() {
@@ -395,6 +411,7 @@ export class StorageService {
   private writeToLocalStorage() {
     this.data.lastModified = new Date().toISOString();
     localStorage.setItem('blocker-data', JSON.stringify(this.data));
+    this.bc.postMessage({ type: 'dataUpdated', timestamp: this.data.lastModified });
   }
 
   private handleStorageChange = (e: StorageEvent) => {

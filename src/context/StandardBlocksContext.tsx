@@ -31,32 +31,20 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
   
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-    
-    const initializeStorage = async () => {
-      try {
-        setIsLoading(true);
-        await storageService.init();
+
+    storageService.getInitPromise().then(() => {
+      fromFile.current = true;
+      setStandardBlocks(storageService.getStandardBlocks());
+      setIsInitialized(true);
+      setIsLoading(false);
+
+      const cb = (b: StandardBlock[]) => {
         fromFile.current = true;
-        setStandardBlocks(storageService.getStandardBlocks());
-        setIsInitialized(true);
-
-        const cb = (b: StandardBlock[]) => {
-          fromFile.current = true;
-          setStandardBlocks(b);
-        };
-        storageService.subscribeStandard(cb);
-        cleanup = () => storageService.unsubscribeStandard(cb);
-      } catch (error) {
-        console.error('Failed to initialize storage:', error);
-        // Even if initialization fails, we should still set up with empty state
-        setStandardBlocks([]);
-        setIsInitialized(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeStorage();
+        setStandardBlocks(b);
+      };
+      storageService.subscribeStandard(cb);
+      cleanup = () => storageService.unsubscribeStandard(cb);
+    });
 
     return () => {
       if (cleanup) cleanup();

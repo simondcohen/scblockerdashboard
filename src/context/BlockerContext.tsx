@@ -50,32 +50,20 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-    
-    const initializeStorage = async () => {
-      try {
-        setIsLoading(true);
-        await storageService.init();
+
+    storageService.getInitPromise().then(() => {
+      fromFile.current = true;
+      setBlocks(storageService.getBlocks());
+      setIsInitialized(true);
+      setIsLoading(false);
+
+      const cb = (b: Block[]) => {
         fromFile.current = true;
-        setBlocks(storageService.getBlocks());
-        setIsInitialized(true);
-
-        const cb = (b: Block[]) => {
-          fromFile.current = true;
-          setBlocks(b);
-        };
-        storageService.subscribeBlocks(cb);
-        cleanup = () => storageService.unsubscribeBlocks(cb);
-      } catch (error) {
-        console.error('Failed to initialize storage:', error);
-        // Even if initialization fails, we should still set up with empty state
-        setBlocks([]);
-        setIsInitialized(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeStorage();
+        setBlocks(b);
+      };
+      storageService.subscribeBlocks(cb);
+      cleanup = () => storageService.unsubscribeBlocks(cb);
+    });
 
     return () => {
       if (cleanup) cleanup();
@@ -96,14 +84,17 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addBlock = (block: Omit<Block, 'id'>) => {
     const newBlock = {
       ...block,
-      id: Date.now()
+      id: Date.now(),
+      lastModified: new Date().toISOString()
     };
     setBlocks(prevBlocks => [...prevBlocks, newBlock]);
   };
 
   const updateBlock = (id: number, block: Omit<Block, 'id'>) => {
-    setBlocks(prevBlocks => 
-      prevBlocks.map(b => b.id === id ? { ...block, id } : b)
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b =>
+        b.id === id ? { ...block, id, lastModified: new Date().toISOString() } : b
+      )
     );
   };
   
