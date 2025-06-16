@@ -64,6 +64,15 @@ const reviver = (key: string, value: unknown) => {
   return value;
 };
 
+type FileSystemHandlePermissionDescriptor = {
+  mode?: 'read' | 'readwrite';
+};
+
+interface PermissibleHandle extends FileSystemFileHandle {
+  queryPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  requestPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+}
+
 export class StorageService {
   private handle: FileSystemFileHandle | null = null;
   private bc: BroadcastChannel;
@@ -189,6 +198,23 @@ export class StorageService {
     for (const cb of this.modeSubs) cb();
   }
 
+  private async verifyPermission(handle: FileSystemFileHandle, readWrite: boolean): Promise<boolean> {
+    const opts: FileSystemHandlePermissionDescriptor = readWrite ? { mode: 'readwrite' } : { mode: 'read' };
+    const h = handle as PermissibleHandle;
+
+    // First check if we already have permission
+    if (h.queryPermission && (await h.queryPermission(opts)) === 'granted') {
+      return true;
+    }
+
+    // If not, request it
+    if (h.requestPermission && (await h.requestPermission(opts)) === 'granted') {
+      return true;
+    }
+
+    return false;
+  }
+
   private setSaving(s: boolean) {
     this.saving = s;
     for (const cb of this.savingSubs) cb(s);
@@ -196,6 +222,14 @@ export class StorageService {
 
   private async tryReadFromFile(): Promise<boolean> {
     if (!this.handle) return false;
+
+    // Check permission first using the proper API
+    const hasPermission = await this.verifyPermission(this.handle, false);
+    if (!hasPermission) {
+      console.info('Read permission needed');
+      return false;
+    }
+
     try {
       const file = await this.handle.getFile();
       this.lastModified = file.lastModified;
@@ -210,10 +244,7 @@ export class StorageService {
       this.notify();
       return true;
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        console.info('File permission needed - handle preserved');
-        return false;
-      }
+      // If we get here despite permission check, handle is invalid
       console.error('File access error:', error);
       await clearStoredHandle();
       this.handle = null;
@@ -223,6 +254,14 @@ export class StorageService {
 
   async restoreFileAccess(): Promise<boolean> {
     if (!this.handle) return false;
+
+    // This will trigger the permission prompt if needed
+    const hasPermission = await this.verifyPermission(this.handle, true);
+    if (!hasPermission) {
+      return false;
+    }
+
+    // Now try to read
     const success = await this.tryReadFromFile();
     if (success) {
       this.mode = 'file';
@@ -230,6 +269,7 @@ export class StorageService {
       window.addEventListener('beforeunload', this.flush);
       return true;
     }
+
     return false;
   }
 
@@ -247,6 +287,15 @@ export class StorageService {
 
   private async writeToFile() {
     if (!this.handle) return;
+
+    // Check write permission first
+    const hasPermission = await this.verifyPermission(this.handle, true);
+    if (!hasPermission) {
+      console.warn('Write permission needed');
+      this.mode = 'needs-permission';
+      this.notifyMode();
+      return;
+    }
 
     try {
       this.setSaving(true);
@@ -272,20 +321,15 @@ export class StorageService {
       this.bc.postMessage({ type: 'dataUpdated', timestamp: this.data.lastModified });
     } catch (error) {
       console.error('Error writing to file:', error);
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        this.mode = this.handle ? 'needs-permission' : 'memory';
-      } else {
-        await clearStoredHandle();
-        this.handle = null;
-        this.mode = 'memory';
-      }
+      // Only clear handle for non-permission errors since we checked permission above
+      await clearStoredHandle();
+      this.handle = null;
+      this.mode = 'memory';
       this.notifyMode();
     } finally {
       this.setSaving(false);
     }
   }
-
-
 
   private notify() {
     for (const cb of this.blockSubs) cb(this.data.blocks);
