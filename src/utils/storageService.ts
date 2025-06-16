@@ -86,6 +86,7 @@ export class StorageService {
   };
   private lastModified = 0;
   private saveTimeout?: number;
+  private pollInterval?: number;
   private blockSubs = new Set<(blocks: Block[]) => void>();
   private standardSubs = new Set<(blocks: StandardBlock[]) => void>();
   private savingSubs = new Set<(saving: boolean) => void>();
@@ -107,6 +108,16 @@ export class StorageService {
         }
       }
     };
+
+    // Handle visibility changes for optimized polling
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Optional: Could stop polling entirely when hidden
+      } else if (this.mode === 'file') {
+        // When becoming visible, do an immediate check
+        this.checkForExternalChanges();
+      }
+    });
   }
 
   async init(): Promise<void> {
@@ -142,6 +153,7 @@ export class StorageService {
       const success = await this.tryReadFromFile();
       if (success) {
         this.mode = 'file';
+        this.startPolling();
         window.addEventListener('beforeunload', this.flush);
       } else if (this.handle) {
         this.mode = 'needs-permission';
@@ -182,6 +194,7 @@ export class StorageService {
 
     const picked = await this.promptForFile();
     if (picked) {
+      this.startPolling();
       await this.writeToFile();
       this.bc.postMessage('fileChanged');
     } else {
@@ -265,6 +278,7 @@ export class StorageService {
     const success = await this.tryReadFromFile();
     if (success) {
       this.mode = 'file';
+      this.startPolling();
       this.notifyMode();
       window.addEventListener('beforeunload', this.flush);
       return true;
@@ -277,10 +291,14 @@ export class StorageService {
     const success = await this.tryReadFromFile();
     if (success) {
       this.mode = 'file';
-    } else if (this.handle) {
-      this.mode = 'needs-permission';
+      this.startPolling();
     } else {
-      this.mode = 'memory';
+      this.stopPolling();
+      if (this.handle) {
+        this.mode = 'needs-permission';
+      } else {
+        this.mode = 'memory';
+      }
     }
     this.notifyMode();
   }
@@ -324,6 +342,7 @@ export class StorageService {
       // Only clear handle for non-permission errors since we checked permission above
       await clearStoredHandle();
       this.handle = null;
+      this.stopPolling();
       this.mode = 'memory';
       this.notifyMode();
     } finally {
@@ -434,7 +453,15 @@ export class StorageService {
     this.handle = await getStoredHandle();
     if (this.handle) {
       const success = await this.tryReadFromFile();
-      this.mode = success ? 'file' : 'needs-permission';
+      if (success) {
+        this.mode = 'file';
+        this.startPolling();
+      } else {
+        this.stopPolling();
+        this.mode = 'needs-permission';
+      }
+    } else {
+      this.stopPolling();
     }
     this.notifyFile();
     this.notifyMode();
@@ -478,7 +505,59 @@ export class StorageService {
         this.writeToFile();
       }
     }
+    this.stopPolling();
   };
+
+  private startPolling() {
+    // Only poll when in file mode with a valid handle
+    if (this.mode !== 'file' || !this.handle) return;
+    
+    // Clear any existing interval
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+    }
+    
+    this.pollInterval = window.setInterval(async () => {
+      // Skip polling if tab is in background
+      if (document.hidden) return;
+      
+      // Skip if we're currently saving
+      if (this.saving) return;
+      
+      try {
+        // Check if file has been modified
+        const file = await this.handle!.getFile();
+        if (file.lastModified > this.lastModified) {
+          console.log('External file change detected, reloading...');
+          await this.readFromFile();
+        }
+      } catch (error) {
+        // If we can't access the file, check if it's a permission issue
+        console.warn('Polling error:', error);
+        // Don't clear the handle here - let readFromFile handle permission issues properly
+      }
+    }, 1500); // Poll every 1.5 seconds
+  }
+
+  private stopPolling() {
+    if (this.pollInterval) {
+      window.clearInterval(this.pollInterval);
+      this.pollInterval = undefined;
+    }
+  }
+
+  private async checkForExternalChanges() {
+    if (this.mode !== 'file' || !this.handle || this.saving) return;
+    
+    try {
+      const file = await this.handle.getFile();
+      if (file.lastModified > this.lastModified) {
+        await this.readFromFile();
+      }
+    } catch (error) {
+      console.warn('External change check failed:', error);
+    }
+  }
 
   isInitialized(): boolean {
     return this.initialized;
