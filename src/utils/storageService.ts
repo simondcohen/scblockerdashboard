@@ -64,6 +64,13 @@ const reviver = (key: string, value: unknown) => {
   return value;
 };
 
+const isValidStorageData = (data: any): data is StorageData => {
+  return data && 
+    typeof data.version === 'string' &&
+    Array.isArray(data.blocks) &&
+    Array.isArray(data.standardBlocks);
+};
+
 type FileSystemHandlePermissionDescriptor = {
   mode?: 'read' | 'readwrite';
 };
@@ -95,6 +102,7 @@ export class StorageService {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private saving = false;
+  private visibilityHandler: () => void;
 
   constructor() {
     this.bc = new BroadcastChannel('storage-service');
@@ -109,15 +117,15 @@ export class StorageService {
       }
     };
 
-    // Handle visibility changes for optimized polling
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // Optional: Could stop polling entirely when hidden
-      } else if (this.mode === 'file') {
-        // When becoming visible, do an immediate check
+    // Store reference to visibility handler for cleanup
+    this.visibilityHandler = () => {
+      if (!document.hidden && this.mode === 'file') {
         this.checkForExternalChanges();
       }
-    });
+    };
+    
+    // Handle visibility changes for optimized polling
+    document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
   async init(): Promise<void> {
@@ -249,7 +257,13 @@ export class StorageService {
       const text = await file.text();
       if (text.trim()) {
         try {
-          this.data = JSON.parse(text, reviver) as StorageData;
+          const parsedData = JSON.parse(text, reviver);
+          if (!isValidStorageData(parsedData)) {
+            console.warn('Invalid storage file format, starting fresh');
+            // Use default empty data structure
+            return true;
+          }
+          this.data = parsedData;
         } catch {
           console.warn('Failed to parse storage file, starting fresh');
         }
@@ -471,7 +485,13 @@ export class StorageService {
     const text = localStorage.getItem('blocker-data');
     if (text) {
       try {
-        this.data = JSON.parse(text, reviver) as StorageData;
+        const parsedData = JSON.parse(text, reviver);
+        if (!isValidStorageData(parsedData)) {
+          console.warn('Invalid storage file format, starting fresh');
+          // Use default empty data structure
+          return;
+        }
+        this.data = parsedData;
         this.notify();
       } catch {
         console.warn('Failed to parse localStorage data, starting fresh');
@@ -565,6 +585,19 @@ export class StorageService {
 
   getInitPromise(): Promise<void> {
     return this.init();
+  }
+
+  destroy() {
+    this.stopPolling();
+    window.removeEventListener('beforeunload', this.flush);
+    window.removeEventListener('storage', this.handleStorageChange);
+    document.removeEventListener('visibilitychange', this.visibilityHandler);
+    if (this.bc) {
+      this.bc.close();
+    }
+    if (this.saveTimeout) {
+      window.clearTimeout(this.saveTimeout);
+    }
   }
 }
 

@@ -7,7 +7,7 @@ import StandardBlocksList from './StandardBlocksList';
 import { StandardBlock } from '../types';
 
 const AddBlockForm: React.FC = () => {
-  const { addBlock } = useBlocker();
+  const { addBlock, blocks } = useBlocker();
   const { addStandardBlock } = useStandardBlocks();
   const [showForm, setShowForm] = useState(false);
   const [blockName, setBlockName] = useState('');
@@ -236,13 +236,32 @@ const AddBlockForm: React.FC = () => {
       return;
     }
 
+    // Check for duplicate blocks
+    const isDuplicate = blocks.some(block => 
+      block.name === blockName.trim() && 
+      block.startTime.getTime() === startTime.getTime() &&
+      block.endTime.getTime() === endTime.getTime()
+    );
 
+    if (isDuplicate) {
+      setFormError('This exact block already exists');
+      return;
+    }
     
     try {
       
       if (endTime <= startTime) {
         setFormError('End time must be after start time');
         return;
+      }
+
+      // For duration mode, check total duration isn't zero
+      if (useDuration) {
+        const totalMinutes = (duration.days * 24 * 60) + (duration.hours * 60) + duration.minutes;
+        if (totalMinutes === 0) {
+          setFormError('Block duration cannot be zero');
+          return;
+        }
       }
 
       addBlock({

@@ -134,7 +134,11 @@ const RequiredBlockItem: React.FC<{
         </div>
         
         <button
-          onClick={onRemoveRequired}
+          onClick={() => {
+            if (window.confirm('Are you sure you want to remove the required status from this block?')) {
+              onRemoveRequired();
+            }
+          }}
           className="text-amber-500 hover:text-amber-700 p-1 transition-colors"
           title="Remove required status"
         >

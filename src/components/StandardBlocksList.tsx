@@ -142,7 +142,11 @@ const StandardBlockItem: React.FC<{
           <Edit size={16} />
         </button>
         <button
-          onClick={() => onDelete(block.id)}
+          onClick={() => {
+            if (window.confirm('Are you sure you want to delete this standard block?')) {
+              onDelete(block.id);
+            }
+          }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 p-1"
           title="Delete block"
         >

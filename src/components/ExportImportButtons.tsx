@@ -31,7 +31,16 @@ const ExportImportButtons: React.FC = () => {
           return;
         }
 
-        await storageService.setBlocks(parsed.blocks);
+        // Parse dates in blocks to convert strings back to Date objects
+        const parsedBlocks = parsed.blocks.map((block: any) => ({
+          ...block,
+          startTime: new Date(block.startTime),
+          endTime: new Date(block.endTime),
+          lastModified: block.lastModified ? new Date(block.lastModified).toISOString() : new Date().toISOString()
+        }));
+
+        // StandardBlocks don't have date fields, so they can be used as-is
+        await storageService.setBlocks(parsedBlocks);
         await storageService.setStandardBlocks(parsed.standardBlocks);
 
         notify('Data imported successfully', 'info');

@@ -173,7 +173,11 @@ const RequiredBlockCard: React.FC<{
         </div>
         
         <button
-          onClick={onRemoveRequired}
+          onClick={() => {
+            if (window.confirm('Are you sure you want to remove the required status from this block?')) {
+              onRemoveRequired();
+            }
+          }}
           className="text-gray-500 hover:text-red-600 p-1 transition-colors"
           title="Remove required status"
         >
