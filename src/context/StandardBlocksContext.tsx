@@ -56,18 +56,29 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
     if (isInitialized && !isLoading) {
       if (fromFile.current) {
         fromFile.current = false;
-      } else {
-        storageService.setStandardBlocks(standardBlocks);
+        return; // Don't save data that came from file
       }
+      
+      // Save to storage after a small delay to batch rapid updates
+      const timeoutId = setTimeout(() => {
+        storageService.setStandardBlocks(standardBlocks);
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [standardBlocks, isInitialized, isLoading]);
   
   const addStandardBlock = (block: Omit<StandardBlock, 'id'>) => {
     const newBlock = {
       ...block,
-      id: Date.now()
+      id: Date.now() + Math.random() // Add random component to prevent ID collisions
     };
-    setStandardBlocks(prevBlocks => [...prevBlocks, newBlock]);
+    console.log('Adding standard block:', newBlock);
+    setStandardBlocks(prevBlocks => {
+      const updated = [...prevBlocks, newBlock];
+      console.log('Updated standard blocks:', updated);
+      return updated;
+    });
   };
 
   const updateStandardBlock = (id: number, block: Omit<StandardBlock, 'id'>) => {
