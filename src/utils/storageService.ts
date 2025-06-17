@@ -58,17 +58,27 @@ const clearStoredHandle = async () => {
 };
 
 const reviver = (key: string, value: unknown) => {
-  if (key === 'startTime' || key === 'endTime') {
-    return new Date(value as string);
+  if (key === 'startTime' || key === 'endTime' || key === 'failedAt') {
+    return value ? new Date(value as string) : value;
   }
   return value;
 };
 
-const isValidStorageData = (data: any): data is StorageData => {
-  return data && 
+const isValidStorageData = (data: unknown): data is StorageData => {
+  return data &&
     typeof data.version === 'string' &&
     Array.isArray(data.blocks) &&
     Array.isArray(data.standardBlocks);
+};
+
+const migrateData = (data: StorageData): StorageData => {
+  data.blocks = data.blocks.map(b => {
+    if (!('status' in b)) {
+      b.status = b.endTime <= new Date() ? 'completed' : 'active';
+    }
+    return b;
+  });
+  return data;
 };
 
 type FileSystemHandlePermissionDescriptor = {
@@ -263,7 +273,7 @@ export class StorageService {
             // Use default empty data structure
             return true;
           }
-          this.data = parsedData;
+          this.data = migrateData(parsedData);
         } catch {
           console.warn('Failed to parse storage file, starting fresh');
         }
@@ -491,7 +501,7 @@ export class StorageService {
           // Use default empty data structure
           return;
         }
-        this.data = parsedData;
+        this.data = migrateData(parsedData);
         this.notify();
       } catch {
         console.warn('Failed to parse localStorage data, starting fresh');
@@ -508,7 +518,7 @@ export class StorageService {
   private handleStorageChange = (e: StorageEvent) => {
     if (e.key === 'blocker-data' && e.newValue) {
       try {
-        this.data = JSON.parse(e.newValue, reviver) as StorageData;
+        this.data = migrateData(JSON.parse(e.newValue, reviver) as StorageData);
         this.notify();
       } catch {
         console.warn('Failed to parse localStorage update');

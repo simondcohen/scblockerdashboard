@@ -4,8 +4,9 @@ import { storageService } from '../utils/storageService';
 
 interface BlockerContextType {
   blocks: Block[];
-  addBlock: (block: Omit<Block, 'id'>) => void;
+  addBlock: (block: Omit<Block, 'id' | 'status' | 'failedAt' | 'failureReason'>) => void;
   updateBlock: (id: number, block: Omit<Block, 'id'>) => void;
+  markBlockFailed: (id: number, failedAt: Date, reason: string) => void;
   removeBlock: (id: number) => void;
   removeUpcomingBlocks: () => void;
   currentTime: Date;
@@ -81,10 +82,11 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [blocks, isInitialized, isLoading]);
   
-  const addBlock = (block: Omit<Block, 'id'>) => {
+  const addBlock = (block: Omit<Block, 'id' | 'status' | 'failedAt' | 'failureReason'>) => {
     const newBlock = {
       ...block,
       id: Date.now(),
+      status: 'active' as const,
       lastModified: new Date().toISOString()
     };
     setBlocks(prevBlocks => [...prevBlocks, newBlock]);
@@ -97,23 +99,50 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       )
     );
   };
+
+  const markBlockFailed = (id: number, failedAt: Date, reason: string) => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b =>
+        b.id === id
+          ? {
+              ...b,
+              status: 'failed',
+              failedAt,
+              failureReason: reason,
+              lastModified: new Date().toISOString(),
+            }
+          : b
+      )
+    );
+  };
   
   const removeBlock = (id: number) => {
     setBlocks(prevBlocks => prevBlocks.filter(block => block.id !== id));
   };
 
   const removeUpcomingBlocks = () => {
-    setBlocks(prevBlocks => 
+    setBlocks(prevBlocks =>
       prevBlocks.filter(block => currentTime >= block.startTime)
     );
   };
-  
+
+  useEffect(() => {
+    setBlocks(prev =>
+      prev.map(b =>
+        b.status !== 'failed' && currentTime >= b.endTime && b.status !== 'completed'
+          ? { ...b, status: 'completed' }
+          : b
+      )
+    );
+  }, [currentTime]);
+
   return (
     <BlockerContext.Provider
       value={{
         blocks,
         addBlock,
         updateBlock,
+        markBlockFailed,
         removeBlock,
         removeUpcomingBlocks,
         currentTime,

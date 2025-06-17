@@ -24,10 +24,11 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
       ) : (
         <div className="space-y-3">
           {blocks.slice(0, 5).map(block => {
+            const isFailed = block.status === 'failed';
             return (
-              <div 
-                key={block.id} 
-                className="bg-gray-50 p-3 rounded transition-all duration-200 hover:bg-gray-100"
+              <div
+                key={block.id}
+                className={`${isFailed ? 'bg-red-50' : 'bg-gray-50'} p-3 rounded transition-all duration-200 hover:bg-gray-100`}
               >
                 {editingId === block.id ? (
                   <BlockActions
@@ -43,11 +44,13 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
                       <div className="font-medium">{block.name}</div>
                       <div className="text-sm text-gray-600 flex justify-between items-center mt-1">
                         <span>
-                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} - 
+                          {block.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })} -
                           {block.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                         </span>
-                        <span className="text-xs bg-green-100 text-green-800 rounded-full px-2 py-0.5">
-                          {formatDuration(block.startTime, block.endTime)}
+                        <span className={`text-xs rounded-full px-2 py-0.5 ${isFailed ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                          {isFailed && block.failedAt ?
+                            `Failed after ${formatDuration(block.startTime, block.failedAt)}` :
+                            formatDuration(block.startTime, block.endTime)}
                         </span>
                       </div>
                       {block.notes && (
@@ -55,6 +58,12 @@ const CompletedBlocksList: React.FC<CompletedBlocksListProps> = ({ blocks }) => 
                           <FileText size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
                           <p className="text-sm text-gray-600 italic">{block.notes}</p>
                         </div>
+                      )}
+                      {isFailed && block.failureReason && (
+                        <div className="mt-1 text-sm text-red-700 italic">{block.failureReason}</div>
+                      )}
+                      {isFailed && block.failedAt && (
+                        <div className="text-xs text-red-600">{formatDuration(block.failedAt, block.endTime)} remaining</div>
                       )}
                     </div>
                     <BlockActions

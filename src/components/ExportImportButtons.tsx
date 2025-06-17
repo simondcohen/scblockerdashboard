@@ -1,6 +1,7 @@
 import React, { ChangeEvent } from 'react';
 import { storageService } from '../utils/storageService';
 import { useNotifications } from '../context/NotificationContext';
+import { Block } from '../types';
 
 const ExportImportButtons: React.FC = () => {
   const { notify } = useNotifications();
@@ -32,7 +33,7 @@ const ExportImportButtons: React.FC = () => {
         }
 
         // Parse dates in blocks to convert strings back to Date objects
-        const parsedBlocks = parsed.blocks.map((block: any) => ({
+        const parsedBlocks: Block[] = parsed.blocks.map((block: Record<string, unknown>) => ({
           ...block,
           startTime: new Date(block.startTime),
           endTime: new Date(block.endTime),
