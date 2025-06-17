@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { StandardBlock } from '../types';
 import { storageService } from '../utils/storageService';
 
@@ -25,21 +25,15 @@ export const useStandardBlocks = () => {
 
 export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>([]);
-  const fromFile = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
   
   useEffect(() => {
     let cleanup: (() => void) | undefined;
-
     storageService.getInitPromise().then(() => {
-      fromFile.current = true;
       setStandardBlocks(storageService.getStandardBlocks());
-      setIsInitialized(true);
       setIsLoading(false);
 
       const cb = (b: StandardBlock[]) => {
-        fromFile.current = true;
         setStandardBlocks(b);
       };
       storageService.subscribeStandard(cb);
@@ -50,55 +44,33 @@ export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = (
       if (cleanup) cleanup();
     };
   }, []);
-
-  // Only update storage after initialization is complete and we're not loading
-  useEffect(() => {
-    if (isInitialized && !isLoading) {
-      if (fromFile.current) {
-        fromFile.current = false;
-        return; // Don't save data that came from file
-      }
-      
-      // Save to storage after a small delay to batch rapid updates
-      const timeoutId = setTimeout(() => {
-        storageService.setStandardBlocks(standardBlocks);
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [standardBlocks, isInitialized, isLoading]);
   
   const addStandardBlock = (block: Omit<StandardBlock, 'id'>) => {
     const newBlock = {
       ...block,
       id: Date.now() + Math.random() // Add random component to prevent ID collisions
     };
-    console.log('Adding standard block:', newBlock);
-    setStandardBlocks(prevBlocks => {
-      const updated = [...prevBlocks, newBlock];
-      console.log('Updated standard blocks:', updated);
-      return updated;
-    });
+    const updated = [...storageService.getStandardBlocks(), newBlock];
+    storageService.setStandardBlocks(updated);
   };
 
   const updateStandardBlock = (id: number, block: Omit<StandardBlock, 'id'>) => {
-    setStandardBlocks(prevBlocks => 
-      prevBlocks.map(b => b.id === id ? { ...block, id } : b)
+    const updated = storageService.getStandardBlocks().map(b =>
+      b.id === id ? { ...block, id } : b
     );
+    storageService.setStandardBlocks(updated);
   };
-  
+
   const removeStandardBlock = (id: number) => {
-    setStandardBlocks(prevBlocks => prevBlocks.filter(block => block.id !== id));
+    const updated = storageService.getStandardBlocks().filter(block => block.id !== id);
+    storageService.setStandardBlocks(updated);
   };
-  
+
   const toggleRequiredStatus = (id: number) => {
-    setStandardBlocks(prevBlocks => 
-      prevBlocks.map(block => 
-        block.id === id 
-          ? { ...block, required: block.required ? false : true }
-          : block
-      )
+    const updated = storageService.getStandardBlocks().map(block =>
+      block.id === id ? { ...block, required: block.required ? false : true } : block
     );
+    storageService.setStandardBlocks(updated);
   };
   
   const getRequiredBlocks = () => {
