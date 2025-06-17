@@ -23,16 +23,16 @@ const BlockerDashboard: React.FC = () => {
   }
   
   // Filter blocks by status
-  const activeBlocks = blocks.filter(block => 
-    currentTime >= block.startTime && currentTime < block.endTime
+  const activeBlocks = blocks.filter(block =>
+    block.status !== 'failed' && currentTime >= block.startTime && currentTime < block.endTime
   ).sort((a, b) => a.endTime.getTime() - b.endTime.getTime());
   
-  const upcomingBlocks = blocks.filter(block => 
-    currentTime < block.startTime
+  const upcomingBlocks = blocks.filter(block =>
+    block.status !== 'failed' && currentTime < block.startTime
   ).sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
   
-  const completedBlocks = blocks.filter(block => 
-    currentTime >= block.endTime
+  const completedBlocks = blocks.filter(block =>
+    block.status === 'failed' || currentTime >= block.endTime
   ).sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
   
   const todayCompletedBlocks = completedBlocks.filter(block => 

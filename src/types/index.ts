@@ -5,6 +5,9 @@ export interface Block {
   endTime: Date;
   notes?: string;
   lastModified?: string;
+  status?: 'active' | 'completed' | 'failed';
+  failedAt?: Date;
+  failureReason?: string;
 }
 
 export interface StandardBlock {

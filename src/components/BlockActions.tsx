@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Trash2, X, Check, Calendar, Clock, FileText } from 'lucide-react';
+import { Edit2, Trash2, X, Check, Calendar, Clock, FileText, Ban } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
 import { useBlocker } from '../context/BlockerContext';
 import { formatDateTimeLocal, parseDateTimeLocal } from '../utils/timeUtils';
@@ -19,9 +19,12 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
   initialEditMode = false,
   fullScreenEdit = false
 }) => {
-  const { removeBlock, updateBlock } = useBlocker();
+  const { removeBlock, updateBlock, markBlockFailed } = useBlocker();
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showFail, setShowFail] = useState(false);
+  const [failTime, setFailTime] = useState(formatDateTimeLocal(new Date()));
+  const [failReason, setFailReason] = useState('');
   const [formData, setFormData] = useState<BlockFormData>({
     name: block.name,
     startTime: formatDateTimeLocal(block.startTime),
@@ -81,7 +84,10 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
       startTime: start,
       endTime: end,
       notes: formData.notes.trim(),
-      lastModified: new Date().toISOString()
+      status: block.status,
+      failedAt: block.failedAt,
+      failureReason: block.failureReason,
+      lastModified: new Date().toISOString(),
     });
 
     setIsEditing(false);
@@ -236,6 +242,61 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
       >
         <Trash2 size={16} />
       </button>
+      {block.status === 'active' && (
+        <button
+          onClick={() => {
+            setShowFail(true);
+            setFailTime(formatDateTimeLocal(new Date()));
+            setFailReason('');
+          }}
+          className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+          title="Mark as Failed"
+        >
+          <Ban size={16} />
+        </button>
+      )}
+      {showFail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg space-y-4 w-80">
+            <h2 className="text-lg font-semibold">Mark Block as Failed</h2>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Failure Time</label>
+              <input
+                type="datetime-local"
+                value={failTime}
+                onChange={e => setFailTime(e.target.value)}
+                className="w-full border p-2 rounded"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Reason</label>
+              <textarea
+                value={failReason}
+                onChange={e => setFailReason(e.target.value)}
+                className="w-full border p-2 rounded"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-1 border rounded"
+                onClick={() => setShowFail(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1 bg-red-600 text-white rounded"
+                onClick={() => {
+                  markBlockFailed(block.id, parseDateTimeLocal(failTime), failReason.trim());
+                  setShowFail(false);
+                }}
+              >
+                Confirm Failure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
