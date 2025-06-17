@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Block } from '../types';
 import { storageService } from '../utils/storageService';
 
@@ -25,9 +25,7 @@ export const useBlocker = () => {
 
 export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const fromFile = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
   
   // Initialize currentTime with a fresh Date object
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
@@ -53,13 +51,10 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let cleanup: (() => void) | undefined;
 
     storageService.getInitPromise().then(() => {
-      fromFile.current = true;
       setBlocks(storageService.getBlocks());
-      setIsInitialized(true);
       setIsLoading(false);
 
       const cb = (b: Block[]) => {
-        fromFile.current = true;
         setBlocks(b);
       };
       storageService.subscribeBlocks(cb);
@@ -70,17 +65,6 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (cleanup) cleanup();
     };
   }, []);
-
-  // Only update storage after initialization is complete and we're not loading
-  useEffect(() => {
-    if (isInitialized && !isLoading) {
-      if (fromFile.current) {
-        fromFile.current = false;
-      } else {
-        storageService.setBlocks(blocks);
-      }
-    }
-  }, [blocks, isInitialized, isLoading]);
   
   const addBlock = (block: Omit<Block, 'id' | 'status' | 'failedAt' | 'failureReason'>) => {
     const newBlock = {
@@ -89,51 +73,49 @@ export const BlockerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       status: 'active' as const,
       lastModified: new Date().toISOString()
     };
-    setBlocks(prevBlocks => [...prevBlocks, newBlock]);
+    const updated = [...storageService.getBlocks(), newBlock];
+    storageService.setBlocks(updated);
   };
 
   const updateBlock = (id: number, block: Omit<Block, 'id'>) => {
-    setBlocks(prevBlocks =>
-      prevBlocks.map(b =>
-        b.id === id ? { ...block, id, lastModified: new Date().toISOString() } : b
-      )
+    const updated = storageService.getBlocks().map(b =>
+      b.id === id ? { ...block, id, lastModified: new Date().toISOString() } : b
     );
+    storageService.setBlocks(updated);
   };
 
   const markBlockFailed = (id: number, failedAt: Date, reason: string) => {
-    setBlocks(prevBlocks =>
-      prevBlocks.map(b =>
-        b.id === id
-          ? {
-              ...b,
-              status: 'failed',
-              failedAt,
-              failureReason: reason,
-              lastModified: new Date().toISOString(),
-            }
-          : b
-      )
+    const updated = storageService.getBlocks().map(b =>
+      b.id === id
+        ? {
+            ...b,
+            status: 'failed',
+            failedAt,
+            failureReason: reason,
+            lastModified: new Date().toISOString(),
+          }
+        : b
     );
+    storageService.setBlocks(updated);
   };
-  
+
   const removeBlock = (id: number) => {
-    setBlocks(prevBlocks => prevBlocks.filter(block => block.id !== id));
+    const updated = storageService.getBlocks().filter(block => block.id !== id);
+    storageService.setBlocks(updated);
   };
 
   const removeUpcomingBlocks = () => {
-    setBlocks(prevBlocks =>
-      prevBlocks.filter(block => currentTime >= block.startTime)
-    );
+    const updated = storageService.getBlocks().filter(block => currentTime >= block.startTime);
+    storageService.setBlocks(updated);
   };
 
   useEffect(() => {
-    setBlocks(prev =>
-      prev.map(b =>
-        b.status !== 'failed' && currentTime >= b.endTime && b.status !== 'completed'
-          ? { ...b, status: 'completed' }
-          : b
-      )
+    const updated = storageService.getBlocks().map(b =>
+      b.status !== 'failed' && currentTime >= b.endTime && b.status !== 'completed'
+        ? { ...b, status: 'completed' }
+        : b
     );
+    storageService.setBlocks(updated);
   }, [currentTime]);
 
   return (
