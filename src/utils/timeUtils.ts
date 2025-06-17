@@ -283,3 +283,30 @@ export const formatSimplifiedRemainingTime = (endTime: Date, currentTime: Date):
     return 'Error';
   }
 };
+
+// Parse date string in local timezone (avoids UTC interpretation issues)
+export const parseDate = (dateString: string): Date => {
+  try {
+    if (!dateString) {
+      throw new Error("Empty date string");
+    }
+    
+    // Handle different date string formats
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      // YYYY-MM-DD format - parse in local timezone to avoid UTC shift
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day); // month is 0-indexed
+    } else {
+      // For other formats (like "Wed May 15 2024"), use regular Date parsing
+      // but ensure we create it in local timezone
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        throw new Error("Invalid date format");
+      }
+      return date;
+    }
+  } catch (error) {
+    console.error("Error parsing date:", error, dateString);
+    throw error;
+  }
+};

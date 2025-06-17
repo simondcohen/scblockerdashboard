@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useBlocker } from '../context/BlockerContext';
-import { formatDuration } from '../utils/timeUtils';
+import { formatDuration, parseDate } from '../utils/timeUtils';
 import { CheckCircle2, FileText, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BlockActions } from './BlockActions';
@@ -21,7 +21,7 @@ const HistoryPage: React.FC = () => {
       }
     });
     
-    const sortedDates = Array.from(dates).map(dateStr => new Date(dateStr));
+    const sortedDates = Array.from(dates).map(dateStr => parseDate(dateStr));
     sortedDates.sort((a, b) => b.getTime() - a.getTime()); // Sort descending
     
     setAvailableDates(sortedDates);
@@ -51,7 +51,7 @@ const HistoryPage: React.FC = () => {
 
   // Handle date selection change
   const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(event.target.value);
+    const newDate = parseDate(event.target.value);
     setSelectedDate(newDate);
   };
 
