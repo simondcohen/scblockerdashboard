@@ -1,13 +1,14 @@
 import React, { ChangeEvent } from 'react';
-import { storageService } from '../utils/storageService';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { useNotifications } from '../context/NotificationContext';
 import { Block } from '../types';
 
 const ExportImportButtons: React.FC = () => {
   const { notify } = useNotifications();
+  const { blocks, standardBlocks, setBlocks, setStandardBlocks } = useFileStorage();
 
   const handleExport = () => {
-    const data = JSON.stringify({ blocks: storageService.getBlocks(), standardBlocks: storageService.getStandardBlocks() }, null, 2);
+    const data = JSON.stringify({ blocks, standardBlocks }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -41,8 +42,8 @@ const ExportImportButtons: React.FC = () => {
         }));
 
         // StandardBlocks don't have date fields, so they can be used as-is
-        await storageService.setBlocks(parsedBlocks);
-        await storageService.setStandardBlocks(parsed.standardBlocks);
+        setBlocks(parsedBlocks);
+        setStandardBlocks(parsed.standardBlocks);
 
         notify('Data imported successfully', 'info');
       } catch (error) {

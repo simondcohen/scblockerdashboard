@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, X, Clock, ArrowRight, FileText } from 'lucide-react';
-import { useBlocker } from '../context/BlockerContext';
-import { useStandardBlocks } from '../context/StandardBlocksContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { formatDateForDateInput, formatTimeForTimeInput, updateDateAndTime } from '../utils/timeUtils';
 import StandardBlocksList from './StandardBlocksList';
 import { StandardBlock } from '../types';
 
 const AddBlockForm: React.FC = () => {
-  const { addBlock, blocks } = useBlocker();
-  const { addStandardBlock } = useStandardBlocks();
+  const { addBlock, blocks, addStandardBlock } = useFileStorage();
   const [showForm, setShowForm] = useState(false);
   const [blockName, setBlockName] = useState('');
   const [notes, setNotes] = useState('');

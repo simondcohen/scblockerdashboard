@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { formatDuration, parseDate } from '../utils/timeUtils';
 import { CheckCircle2, FileText, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BlockActions } from './BlockActions';
 
 const HistoryPage: React.FC = () => {
-  const { blocks, isLoading } = useBlocker();
+  const { blocks, isLoading } = useFileStorage();
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [availableDates, setAvailableDates] = useState<Date[]>([]);

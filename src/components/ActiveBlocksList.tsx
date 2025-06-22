@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Block } from '../types';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { calculateRemainingTime, calculateProgress } from '../utils/timeUtils';
 import { ShieldAlert, FileText } from 'lucide-react';
 import { BlockActions } from './BlockActions';
@@ -10,7 +10,7 @@ interface ActiveBlocksListProps {
 }
 
 const ActiveBlocksList: React.FC<ActiveBlocksListProps> = ({ blocks }) => {
-  const { currentTime } = useBlocker();
+  const { currentTime } = useFileStorage();
   const [editingId, setEditingId] = useState<number | null>(null);
   
   return (

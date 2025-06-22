@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Trash2, Edit, Check, X, PlusCircle, Star, StarOff, Clock } from 'lucide-react';
-import { useStandardBlocks } from '../context/StandardBlocksContext';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { formatSimplifiedRemainingTime } from '../utils/timeUtils';
 import { StandardBlock } from '../types';
 
@@ -166,8 +165,7 @@ const StandardBlockItem: React.FC<{
 const StandardBlocksList: React.FC<{
   onSelectBlock: (block: StandardBlock) => void;
 }> = ({ onSelectBlock }) => {
-  const { standardBlocks, addStandardBlock, updateStandardBlock, removeStandardBlock, toggleRequiredStatus } = useStandardBlocks();
-  const { blocks, currentTime } = useBlocker();
+  const { standardBlocks, addStandardBlock, updateStandardBlock, removeStandardBlock, toggleRequiredStatus, blocks, currentTime } = useFileStorage();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBlock, setEditingBlock] = useState<StandardBlock | null>(null);
   

@@ -1,9 +1,7 @@
 import React from 'react';
 import { Clock, History, Star } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useStandardBlocks } from '../context/StandardBlocksContext';
-import { useBlocker } from '../context/BlockerContext';
-import { useStorage } from '../context/StorageProvider';
+import { useFileStorage } from '../hooks/useFileStorage';
 import ExportImportButtons from './ExportImportButtons';
 
 interface LayoutProps {
@@ -17,12 +15,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isDashboardActive = location.pathname === '/';
   const isRequiredActive = location.pathname === '/required';
   
-  const { getRequiredBlocks, isLoading: standardBlocksLoading } = useStandardBlocks();
-  const { blocks, currentTime, isLoading: blocksLoading } = useBlocker();
-  const { fileName, saving, changeFile, mode } = useStorage();
+  const {
+    getRequiredBlocks,
+    blocks,
+    currentTime,
+    fileName,
+    fileStatus,
+    selectFile,
+    isLoading,
+  } = useFileStorage();
 
   const changeLocation = async () => {
-    await changeFile();
+    await selectFile();
   };
   
   // Get active block names for required blocks check
@@ -32,8 +36,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   // Check if all required blocks are active (only if not loading)
   const requiredBlocks = getRequiredBlocks();
-  const allRequiredActive = (blocksLoading || standardBlocksLoading) ? true : 
-    (requiredBlocks.length === 0 ? true : 
+  const allRequiredActive = isLoading ? true :
+    (requiredBlocks.length === 0 ? true :
       requiredBlocks.every(block => activeBlockNames.includes(block.name)));
 
 
@@ -96,19 +100,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </nav>
               
               <div id="storage-info" className="flex items-center space-x-2 text-sm text-gray-600 pl-4 border-l border-gray-200">
-                {mode === 'memory' && (
+                {fileStatus === 'no-file' && (
                   <>
-                    <span className="text-amber-600">⚠️ No Storage</span>
+                    <span className="text-amber-600">⚠️ No File</span>
                     <button
                       onClick={changeLocation}
                       className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
                     >
-                      Enable Storage
+                      Select File
                     </button>
                   </>
                 )}
 
-                {mode === 'needs-permission' && (
+                {fileStatus === 'error' && (
                   <>
                     <span>Storage:</span>
                     <span className="font-medium flex items-center text-amber-600">
@@ -124,14 +128,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </>
                 )}
 
-                {(mode === 'file' || mode === 'localStorage') && (
+                {fileStatus === 'ready' && (
                   <>
                     <span>Storage:</span>
                     <span className="font-medium flex items-center">
-                      <span className="mr-1">📁</span>{fileName || 'Browser Storage'}
-                      {saving && <span className="ml-2 text-xs text-gray-500">Saving...</span>}
+                      <span className="mr-1">📁</span>{fileName}
                     </span>
-                    <span className="text-xs text-gray-500">({mode})</span>
                     <button onClick={changeLocation} className="underline text-blue-600 text-xs">
                       Change
                     </button>
@@ -144,21 +146,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </div>
       </header>
-      {(mode === 'memory' || mode === 'needs-permission') && (
+      {(fileStatus === 'no-file' || fileStatus === 'error') && (
         <div
           className={`${
-            mode === 'memory' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+            fileStatus === 'no-file' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
           } border rounded-md p-3 mb-4 flex items-center justify-between`}
         >
           <div className="flex items-center">
-            <span className="text-lg mr-2">{mode === 'memory' ? '⚠️' : '🔒'}</span>
+            <span className="text-lg mr-2">{fileStatus === 'no-file' ? '⚠️' : '🔒'}</span>
             <div>
-              <p className={`font-medium ${mode === 'memory' ? 'text-red-800' : 'text-amber-800'}`}>
-                {mode === 'memory' ? 'Your data is not being saved' : 'Storage permission needed'}
+              <p className={`font-medium ${fileStatus === 'no-file' ? 'text-red-800' : 'text-amber-800'}`}>
+                {fileStatus === 'no-file' ? 'No file selected' : 'Storage permission needed'}
               </p>
-              <p className={`text-sm ${mode === 'memory' ? 'text-red-600' : 'text-amber-600'}`}>
-                {mode === 'memory'
-                  ? 'Enable storage to persist your blocks across sessions.'
+              <p className={`text-sm ${fileStatus === 'no-file' ? 'text-red-600' : 'text-amber-600'}`}>
+                {fileStatus === 'no-file'
+                  ? 'Select a storage file to persist your blocks.'
                   : 'Click below to restore access to your saved data.'}
               </p>
             </div>
@@ -166,10 +168,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <button
             onClick={changeLocation}
             className={`px-4 py-2 rounded font-medium text-white ${
-              mode === 'memory' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+              fileStatus === 'no-file' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
             }`}
           >
-            {mode === 'memory' ? 'Enable Storage' : 'Restore Access'}
+            {fileStatus === 'no-file' ? 'Select File' : 'Restore Access'}
           </button>
         </div>
       )}

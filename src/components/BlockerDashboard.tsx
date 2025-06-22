@@ -1,6 +1,5 @@
 import React from 'react';
-import { useBlocker } from '../context/BlockerContext';
-import { useStandardBlocks } from '../context/StandardBlocksContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import AddBlockForm from './AddBlockForm';
 import ActiveBlocksList from './ActiveBlocksList';
 import UpcomingBlocksList from './UpcomingBlocksList';
@@ -8,11 +7,10 @@ import CompletedBlocksList from './CompletedBlocksList';
 import { Loader2 } from 'lucide-react';
 
 const BlockerDashboard: React.FC = () => {
-  const { blocks, currentTime, isLoading } = useBlocker();
-  const { isLoading: standardLoading } = useStandardBlocks();
+  const { blocks, currentTime, isLoading } = useFileStorage();
   
   // Show loading state while storage is initializing
-  if (isLoading || standardLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

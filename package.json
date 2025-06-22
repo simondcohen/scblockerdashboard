@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "jsdom": "^26.1.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-datepicker": "^6.9.0",

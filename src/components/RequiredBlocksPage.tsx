@@ -1,13 +1,18 @@
 import React from 'react';
-import { useStandardBlocks } from '../context/StandardBlocksContext';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { Star, Trash2, Star as StarIcon, AlertTriangle, Clock } from 'lucide-react';
 import { StandardBlock } from '../types';
 import { formatSimplifiedRemainingTime } from '../utils/timeUtils';
 
 const RequiredBlocksPage: React.FC = () => {
-  const { standardBlocks, getRequiredBlocks, toggleRequiredStatus, isLoading: standardBlocksLoading } = useStandardBlocks();
-  const { blocks, currentTime, isLoading: blocksLoading } = useBlocker();
+  const {
+    standardBlocks,
+    getRequiredBlocks,
+    toggleRequiredStatus,
+    blocks,
+    currentTime,
+    isLoading,
+  } = useFileStorage();
   
   // Filter standard blocks that are not already required
   const nonRequiredStandardBlocks = standardBlocks.filter(block => !block.required);
@@ -56,7 +61,7 @@ const RequiredBlocksPage: React.FC = () => {
   });
   
   // Show loading state while storage is initializing
-  if (blocksLoading || standardBlocksLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

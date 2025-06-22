@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, Trash2, X, Check, Calendar, Clock, FileText, Ban } from 'lucide-react';
 import { Block, BlockFormData } from '../types';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 import { formatDateTimeLocal, parseDateTimeLocal } from '../utils/timeUtils';
 
 interface BlockActionsProps {
@@ -19,7 +19,7 @@ export const BlockActions: React.FC<BlockActionsProps> = ({
   initialEditMode = false,
   fullScreenEdit = false
 }) => {
-  const { removeBlock, updateBlock, markBlockFailed } = useBlocker();
+  const { removeBlock, updateBlock, markBlockFailed } = useFileStorage();
   const [isEditing, setIsEditing] = useState(initialEditMode);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFail, setShowFail] = useState(false);

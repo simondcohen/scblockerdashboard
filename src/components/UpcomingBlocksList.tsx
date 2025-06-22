@@ -3,7 +3,7 @@ import { Block } from '../types';
 import { formatDuration } from '../utils/timeUtils';
 import { CalendarClock, FileText, Trash2 } from 'lucide-react';
 import { BlockActions } from './BlockActions';
-import { useBlocker } from '../context/BlockerContext';
+import { useFileStorage } from '../hooks/useFileStorage';
 
 interface UpcomingBlocksListProps {
   blocks: Block[];
@@ -11,7 +11,7 @@ interface UpcomingBlocksListProps {
 
 const UpcomingBlocksList: React.FC<UpcomingBlocksListProps> = ({ blocks }) => {
   const [editingId, setEditingId] = useState<number | null>(null);
-  const { removeUpcomingBlocks } = useBlocker();
+  const { removeUpcomingBlocks } = useFileStorage();
 
   const handleBulkDelete = () => {
     if (blocks.length === 0) return;
