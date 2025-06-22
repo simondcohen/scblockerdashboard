@@ -1,11 +1,15 @@
 import React from 'react';
-import { Clock, History, Star, Download, Upload } from 'lucide-react';
+import { Clock, History, Star, Download, Upload, File, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { useBlocker } from '../context/BlockerContext';
 
 interface LayoutProps {
   children: React.ReactNode;
+  onFileSelect?: () => Promise<void>;
+  onDisconnect?: () => Promise<void>;
+  currentFileName?: string | null;
+  isFileSystemSupported?: boolean;
 }
 
 interface BackupData {
@@ -15,7 +19,13 @@ interface BackupData {
   standardBlocks: unknown[];
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ 
+  children, 
+  onFileSelect,
+  onDisconnect,
+  currentFileName,
+  isFileSystemSupported = false
+}) => {
   const location = useLocation();
   const isHistoryActive = location.pathname === '/history';
   const isDashboardActive = location.pathname === '/';
@@ -124,6 +134,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     input.click();
   };
 
+  const handleFileSelect = async () => {
+    if (onFileSelect) {
+      await onFileSelect();
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (onDisconnect) {
+      if (window.confirm('Are you sure you want to disconnect from the file? The app will revert to using local browser storage.')) {
+        await onDisconnect();
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -183,6 +207,39 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </nav>
               
               <div className="flex space-x-1 border-l border-gray-200 pl-4">
+                {/* File Management Buttons */}
+                {isFileSystemSupported && (
+                  <>
+                    <button
+                      onClick={handleFileSelect}
+                      className={`px-3 py-2 rounded-md text-sm font-medium flex items-center transition-colors ${
+                        currentFileName
+                          ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                      title={currentFileName ? `Current file: ${currentFileName}` : 'Select data file'}
+                    >
+                      {currentFileName ? (
+                        <FileText className="h-4 w-4 mr-1.5 text-blue-500" />
+                      ) : (
+                        <File className="h-4 w-4 mr-1.5 text-gray-500" />
+                      )}
+                      {currentFileName || 'Select File'}
+                    </button>
+
+                    {currentFileName && (
+                      <button
+                        onClick={handleDisconnect}
+                        className="px-3 py-2 rounded-md text-sm font-medium flex items-center text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors"
+                        title="Disconnect from file"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Legacy Backup Buttons */}
                 <button
                   onClick={downloadBackup}
                   className="px-3 py-2 rounded-md text-sm font-medium flex items-center text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"

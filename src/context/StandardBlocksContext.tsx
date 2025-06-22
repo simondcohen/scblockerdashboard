@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { StandardBlock } from '../types';
+import { readFile, writeFile, FileData } from '../utils/fileStorage';
 
 interface StandardBlocksContextType {
   standardBlocks: StandardBlock[];
@@ -23,33 +24,133 @@ export const useStandardBlocks = () => {
 
 const STORAGE_KEY = 'tech-blocker-standard-blocks';
 
-export const StandardBlocksProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>(() => {
-    try {
-      const savedBlocks = localStorage.getItem(STORAGE_KEY);
-      if (savedBlocks) {
-        const parsedBlocks = JSON.parse(savedBlocks);
-        
-        if (Array.isArray(parsedBlocks) && parsedBlocks.every(block => 
-          typeof block.id === 'number' &&
-          typeof block.name === 'string'
-        )) {
-          return parsedBlocks;
+export const StandardBlocksProvider: React.FC<{ 
+  children: React.ReactNode; 
+  fileHandle?: FileSystemFileHandle | null; 
+}> = ({ children, fileHandle }) => {
+  const [standardBlocks, setStandardBlocks] = useState<StandardBlock[]>([]);
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [lastFileModified, setLastFileModified] = useState<number>(0);
+  const [currentFileHandle, setCurrentFileHandle] = useState<FileSystemFileHandle | null>(null);
+
+  // Initialize data from file or localStorage - reload when fileHandle changes
+  useEffect(() => {
+    const initializeData = async () => {
+      if (fileHandle) {
+        try {
+          const fileData = await readFile(fileHandle);
+          // Clear existing data and load from new file
+          setStandardBlocks(fileData.standardBlocks);
+          setBlocks(fileData.blocks);
+          
+          // Track file modification time
+          const file = await fileHandle.getFile();
+          setLastFileModified(file.lastModified);
+          setCurrentFileHandle(fileHandle);
+        } catch (error) {
+          console.error('Error loading data from file:', error);
+        }
+      } else {
+        // Fallback to localStorage - only load if switching from file mode
+        if (currentFileHandle) {
+          // Switching from file to localStorage mode, load localStorage data
+          setCurrentFileHandle(null);
+          try {
+            const savedBlocks = localStorage.getItem(STORAGE_KEY);
+            if (savedBlocks) {
+              const parsedBlocks = JSON.parse(savedBlocks);
+              
+              if (Array.isArray(parsedBlocks) && parsedBlocks.every(block => 
+                typeof block.id === 'number' &&
+                typeof block.name === 'string'
+              )) {
+                setStandardBlocks(parsedBlocks);
+              }
+            } else {
+              // No localStorage data, start fresh
+              setStandardBlocks([]);
+            }
+            setBlocks([]);
+          } catch (error) {
+            console.error('Error loading standard blocks from localStorage:', error);
+            setStandardBlocks([]);
+            setBlocks([]);
+          }
+        } else if (!currentFileHandle && standardBlocks.length === 0) {
+          // Initial load with localStorage (not switching modes)
+          try {
+            const savedBlocks = localStorage.getItem(STORAGE_KEY);
+            if (savedBlocks) {
+              const parsedBlocks = JSON.parse(savedBlocks);
+              
+              if (Array.isArray(parsedBlocks) && parsedBlocks.every(block => 
+                typeof block.id === 'number' &&
+                typeof block.name === 'string'
+              )) {
+                setStandardBlocks(parsedBlocks);
+              }
+            }
+          } catch (error) {
+            console.error('Error loading standard blocks from localStorage:', error);
+          }
         }
       }
-    } catch (error) {
-      console.error('Error loading standard blocks from localStorage:', error);
-    }
-    return [];
-  });
-  
+    };
+
+    initializeData();
+  }, [fileHandle]); // Re-run when fileHandle changes
+
+  // Polling for file changes (1.5 seconds)
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(standardBlocks));
-    } catch (error) {
-      console.error('Error saving standard blocks to localStorage:', error);
+    if (!fileHandle) return;
+
+    const checkForFileChanges = async () => {
+      try {
+        const file = await fileHandle.getFile();
+        if (file.lastModified > lastFileModified) {
+          const fileData = await readFile(fileHandle);
+          setStandardBlocks(fileData.standardBlocks);
+          setBlocks(fileData.blocks);
+          setLastFileModified(file.lastModified);
+        }
+      } catch (error) {
+        console.error('Error checking for file changes:', error);
+      }
+    };
+
+    const interval = setInterval(checkForFileChanges, 1500);
+    return () => clearInterval(interval);
+  }, [fileHandle, lastFileModified]);
+  
+  // Save to file or localStorage when standardBlocks change
+  useEffect(() => {
+    const saveData = async () => {
+      if (fileHandle) {
+        try {
+          const fileData: FileData = { blocks, standardBlocks };
+          await writeFile(fileHandle, fileData);
+          
+          // Update last modified time after writing
+          const file = await fileHandle.getFile();
+          setLastFileModified(file.lastModified);
+        } catch (error) {
+          console.error('Error saving data to file:', error);
+        }
+      } else {
+        // Fallback to localStorage
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(standardBlocks));
+        } catch (error) {
+          console.error('Error saving standard blocks to localStorage:', error);
+        }
+      }
+    };
+
+    // Only save if there are blocks or if we're explicitly clearing
+    if (standardBlocks.length > 0 || currentFileHandle !== fileHandle) {
+      saveData();
     }
-  }, [standardBlocks]);
+  }, [standardBlocks, fileHandle]);
   
   const addStandardBlock = (block: Omit<StandardBlock, 'id'>) => {
     const newBlock = {
