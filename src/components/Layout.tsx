@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, History, Star, Download, Upload, File, FileText } from 'lucide-react';
+import { Clock, History, Star, File, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useStandardBlocks } from '../context/StandardBlocksContext';
 import { useBlocker } from '../context/BlockerContext';
@@ -10,13 +10,6 @@ interface LayoutProps {
   onDisconnect?: () => Promise<void>;
   currentFileName?: string | null;
   isFileSystemSupported?: boolean;
-}
-
-interface BackupData {
-  version: string;
-  exportDate: string;
-  blocks: unknown[];
-  standardBlocks: unknown[];
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -43,96 +36,6 @@ const Layout: React.FC<LayoutProps> = ({
   const requiredBlocks = getRequiredBlocks();
   const allRequiredActive = requiredBlocks.length === 0 ? true : 
     requiredBlocks.every(block => activeBlockNames.includes(block.name));
-
-  const downloadBackup = () => {
-    try {
-      // Get data from localStorage
-      const blocksData = localStorage.getItem('tech-blocker-blocks');
-      const standardBlocksData = localStorage.getItem('tech-blocker-standard-blocks');
-      
-      // Parse the data
-      const blocks = blocksData ? JSON.parse(blocksData) : [];
-      const standardBlocks = standardBlocksData ? JSON.parse(standardBlocksData) : [];
-      
-      // Create backup object
-      const backupData: BackupData = {
-        version: '1.0',
-        exportDate: new Date().toISOString(),
-        blocks,
-        standardBlocks
-      };
-      
-      // Create and download file
-      const dataStr = JSON.stringify(backupData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Format date for filename
-      const today = new Date();
-      const dateStr = today.getFullYear() + '-' + 
-        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(today.getDate()).padStart(2, '0');
-      
-      link.download = `blocker-backup-${dateStr}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error('Error creating backup:', error);
-      alert('Error creating backup. Please try again.');
-    }
-  };
-
-  const uploadBackup = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const backupData: BackupData = JSON.parse(content);
-          
-          // Validate backup structure
-          if (!backupData.version || !backupData.blocks || !backupData.standardBlocks) {
-            throw new Error('Invalid backup file format');
-          }
-          
-          // Confirm before overwriting
-          const confirmMessage = `This will replace all your current data with the backup from ${
-            backupData.exportDate ? new Date(backupData.exportDate).toLocaleDateString() : 'unknown date'
-          }. Are you sure?`;
-          
-          if (window.confirm(confirmMessage)) {
-            // Update localStorage
-            localStorage.setItem('tech-blocker-blocks', JSON.stringify(backupData.blocks));
-            localStorage.setItem('tech-blocker-standard-blocks', JSON.stringify(backupData.standardBlocks));
-            
-            // Reload page to apply changes
-            window.location.reload();
-          }
-          
-        } catch (error) {
-          console.error('Error restoring backup:', error);
-          alert('Error reading backup file. Please ensure it\'s a valid backup file.');
-        }
-      };
-      
-      reader.readAsText(file);
-    };
-    
-    input.click();
-  };
 
   const handleFileSelect = async () => {
     if (onFileSelect) {
@@ -238,24 +141,6 @@ const Layout: React.FC<LayoutProps> = ({
                     )}
                   </>
                 )}
-
-                {/* Legacy Backup Buttons */}
-                <button
-                  onClick={downloadBackup}
-                  className="px-3 py-2 rounded-md text-sm font-medium flex items-center text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                  title="Download Backup"
-                >
-                  <Download className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Download Backup
-                </button>
-                <button
-                  onClick={uploadBackup}
-                  className="px-3 py-2 rounded-md text-sm font-medium flex items-center text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                  title="Upload Backup"
-                >
-                  <Upload className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Upload Backup
-                </button>
               </div>
             </div>
           </div>
