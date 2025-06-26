@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { FileDataStoreProvider } from './context/FileDataStore';
 import { BlockerProvider } from './context/BlockerContext';
 import { StandardBlocksProvider } from './context/StandardBlocksContext';
 import Layout from './components/Layout';
@@ -92,22 +93,24 @@ function App() {
 
   return (
     <BrowserRouter>
-      <BlockerProvider fileHandle={useFileStorage ? fileHandle : null}>
-        <StandardBlocksProvider fileHandle={useFileStorage ? fileHandle : null}>
-          <Layout 
-            onFileSelect={handleFileSelection}
-            onDisconnect={handleDisconnect}
-            currentFileName={getFileName()}
-            isFileSystemSupported={isFileSystemAccessSupported()}
-          >
-            <Routes>
-              <Route path="/" element={<BlockerDashboard />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/required" element={<RequiredBlocksPage />} />
-            </Routes>
-          </Layout>
-        </StandardBlocksProvider>
-      </BlockerProvider>
+      <FileDataStoreProvider fileHandle={useFileStorage ? fileHandle : null}>
+        <BlockerProvider>
+          <StandardBlocksProvider>
+            <Layout 
+              onFileSelect={handleFileSelection}
+              onDisconnect={handleDisconnect}
+              currentFileName={getFileName()}
+              isFileSystemSupported={isFileSystemAccessSupported()}
+            >
+              <Routes>
+                <Route path="/" element={<BlockerDashboard />} />
+                <Route path="/history" element={<HistoryPage />} />
+                <Route path="/required" element={<RequiredBlocksPage />} />
+              </Routes>
+            </Layout>
+          </StandardBlocksProvider>
+        </BlockerProvider>
+      </FileDataStoreProvider>
     </BrowserRouter>
   );
 }

@@ -114,41 +114,27 @@ export const selectFileOld = async (): Promise<FileSystemFileHandle | null> => {
 
 // Read file and parse JSON
 export const readFile = async (fileHandle: FileSystemFileHandle): Promise<FileData> => {
-  try {
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    
-    if (!text.trim()) {
-      // Empty file, return default structure
-      return { blocks: [], standardBlocks: [] };
-    }
-    
-    const data = JSON.parse(text, (key, value) => {
-      // Parse dates in blocks
-      if (key === 'startTime' || key === 'endTime') {
-        const date = new Date(value);
-        return new Date(
-          date.getFullYear(),
-          date.getMonth(),
-          date.getDate(),
-          date.getHours(),
-          date.getMinutes(),
-          date.getSeconds()
-        );
-      }
-      return value;
-    });
-    
-    // Ensure the data has the correct structure
-    return {
-      blocks: Array.isArray(data.blocks) ? data.blocks : [],
-      standardBlocks: Array.isArray(data.standardBlocks) ? data.standardBlocks : []
-    };
-  } catch (error) {
-    console.error('Error reading file:', error);
-    // Return default structure on error
+  const file = await fileHandle.getFile();
+  const text = await file.text();
+  
+  if (!text.trim()) {
+    // Empty file, return default structure
     return { blocks: [], standardBlocks: [] };
   }
+  
+  const data = JSON.parse(text, (key, value) => {
+    // Parse dates in blocks - just use the ISO string directly
+    if ((key === 'startTime' || key === 'endTime') && typeof value === 'string') {
+      return new Date(value);
+    }
+    return value;
+  });
+  
+  // Ensure the data has the correct structure
+  return {
+    blocks: Array.isArray(data.blocks) ? data.blocks : [],
+    standardBlocks: Array.isArray(data.standardBlocks) ? data.standardBlocks : []
+  };
 };
 
 // Write JSON to file
